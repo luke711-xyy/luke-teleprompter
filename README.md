@@ -26,6 +26,29 @@ npm run web
 
 Chrome 语音识别可能使用 Google 的在线服务，因此网页版不承诺完全离线。文稿和阅读设置仍只保存在浏览器本机存储中。
 
+## 在 iPad 上使用
+
+正式网页地址：
+
+<https://luke-teleprompter.pages.dev/>
+
+1. 在 iPad 上用 Safari 打开上述 HTTPS 地址，并将 iPad 横屏。
+2. 首次打开时允许 Safari 使用麦克风和语音识别。
+3. 如果没有出现权限提示，点击一次“暂停”，再点击“继续”，以用户操作重新启动识别。
+4. 如果仍无法转写，请在 iPad“设置”中启用 Siri 或“听写”，然后重新打开 Safari 页面。
+
+建议直接保留在 Safari 普通标签页中使用。WebKit 的 `SpeechRecognition` 在添加到主屏幕后的独立 Web App 中仍可能不可用，因此暂不建议把它当作 PWA 启动。iPad 上的文稿、字号和阅读位置存储在 iPad Safari 本机，不会与 Mac 自动同步。
+
+## 发布网页版
+
+网页通过 Cloudflare Pages 发布。修改完成并通过测试后运行：
+
+```bash
+npm run deploy:web
+```
+
+该命令会先构建网页，再把 `dist` 上传到 `luke-teleprompter.pages.dev`。GitHub 仓库保持私有。
+
 ## 开发
 
 要求：Node.js 22+、Rust stable、Xcode Command Line Tools、CMake。
