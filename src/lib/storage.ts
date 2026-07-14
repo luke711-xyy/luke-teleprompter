@@ -1,4 +1,5 @@
 import type { PersistedSettings } from "./types";
+import { FOCUS_POSITION_MAX, FOCUS_POSITION_MIN, FONT_SIZE_MAX, FONT_SIZE_MIN } from "./settingsBounds";
 
 const KEY = "luke-teleprompter:settings:v1";
 
@@ -20,9 +21,12 @@ export function loadSettings(): PersistedSettings {
     if (!stored) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(stored) as Partial<PersistedSettings>;
     const focusPosition = typeof parsed.focusPosition === "number"
-      ? Math.min(70, Math.max(30, parsed.focusPosition))
+      ? Math.min(FOCUS_POSITION_MAX, Math.max(FOCUS_POSITION_MIN, parsed.focusPosition))
       : DEFAULT_SETTINGS.focusPosition;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition };
+    const fontSize = typeof parsed.fontSize === "number"
+      ? Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, parsed.fontSize))
+      : DEFAULT_SETTINGS.fontSize;
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize };
   } catch {
     return DEFAULT_SETTINGS;
   }

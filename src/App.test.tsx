@@ -141,6 +141,8 @@ describe("microphone test panel", () => {
 
     const positionSlider = screen.getByRole("slider", { name: "阅读位置" });
     expect(positionSlider).toHaveValue("50");
+    expect(positionSlider).toHaveAttribute("min", "20");
+    expect(positionSlider).toHaveAttribute("max", "80");
     fireEvent.change(positionSlider, { target: { value: "36" } });
 
     expect(positionSlider).toHaveValue("36");
@@ -148,6 +150,14 @@ describe("microphone test panel", () => {
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusPosition).toBe(36);
     });
+  });
+
+  it("allows a larger maximum font size", () => {
+    render(<App />);
+
+    const fontSlider = screen.getByRole("slider", { name: "文字大小" });
+    expect(fontSlider).toHaveAttribute("min", "44");
+    expect(fontSlider).toHaveAttribute("max", "148");
   });
 
   it("jumps to the first and last sentences from the transport controls", async () => {

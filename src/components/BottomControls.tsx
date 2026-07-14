@@ -12,6 +12,7 @@ import {
   RectangleHorizontal,
 } from "lucide-react";
 import { IconButton } from "./IconButton";
+import { FOCUS_POSITION_MAX, FOCUS_POSITION_MIN, FONT_SIZE_MAX, FONT_SIZE_MIN } from "../lib/settingsBounds";
 
 interface BottomControlsProps {
   playing: boolean;
@@ -95,8 +96,8 @@ export function BottomControls({
           <span className="position-control__input-row">
             <input
               type="range"
-              min="30"
-              max="70"
+              min={FOCUS_POSITION_MIN}
+              max={FOCUS_POSITION_MAX}
               step="1"
               value={focusPosition}
               onChange={(event) => onFocusPositionChange(Number(event.target.value))}
@@ -112,8 +113,8 @@ export function BottomControls({
           <span>文字大小</span>
           <input
             type="range"
-            min="44"
-            max="92"
+            min={FONT_SIZE_MIN}
+            max={FONT_SIZE_MAX}
             step="2"
             value={fontSize}
             onChange={(event) => onFontSizeChange(Number(event.target.value))}
