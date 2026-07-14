@@ -56,6 +56,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState(initialSettings.fontSize);
   const [focusPosition, setFocusPosition] = useState(initialSettings.focusPosition);
   const [dimStrength, setDimStrength] = useState(initialSettings.dimStrength);
+  const [skipAheadEnabled, setSkipAheadEnabled] = useState(initialSettings.skipAheadEnabled);
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
@@ -90,6 +91,7 @@ export default function App() {
       document,
       currentSearchableRef.current,
       result.isFinal ? 180 : 72,
+      skipAheadEnabled,
     );
     if (!match || match.searchableIndex < currentSearchableRef.current) return;
     // Chrome interim transcripts arrive much earlier than final results. A
@@ -113,10 +115,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, focusPosition, dimStrength, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, focusPosition, dimStrength, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -417,8 +419,13 @@ export default function App() {
         speed={speed}
         modelState={modelStatus.state}
         recognitionState={recognitionState}
+        skipAheadEnabled={skipAheadEnabled}
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
+        onToggleSkipAhead={() => {
+          setSkipAheadEnabled((value) => !value);
+          hysteresisRef.current.reset();
+        }}
         onEdit={() => setEditorOpen(true)}
         onMicrophoneTest={handleOpenMicrophoneTest}
       />

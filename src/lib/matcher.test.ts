@@ -21,6 +21,15 @@ describe("forward script matching", () => {
     expect(script.tokens[match!.displayTokenIndex].sentenceIndex).toBe(2);
   });
 
+  it("can require sequential matching without searching later script positions", () => {
+    const skipped = findForwardMatch("接下来开始实际演示", script, 0, 180, false);
+    expect(skipped).toBeNull();
+
+    const sequential = findForwardMatch("今天我们介绍产品", script, 0, 180, false);
+    expect(sequential).not.toBeNull();
+    expect(script.tokens[sequential!.displayTokenIndex].sentenceIndex).toBe(0);
+  });
+
   it("never searches behind the current position", () => {
     const current = script.searchableTokens.findIndex((token) => token.sentenceIndex === 2);
     const match = findForwardMatch("今天我们介绍产品", script, current);

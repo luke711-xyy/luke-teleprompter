@@ -130,8 +130,8 @@ input:focus-visible {
 
 .topbar__controls {
   display: grid;
-  grid-template-columns: minmax(300px, 350px) minmax(170px, 190px) 140px minmax(150px, 170px) minmax(135px, 150px);
-  gap: clamp(16px, 2.2vw, 38px);
+  grid-template-columns: minmax(280px, 330px) minmax(150px, 176px) minmax(92px, 108px) 116px minmax(138px, 154px) minmax(124px, 142px);
+  gap: clamp(10px, 1.4vw, 24px);
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -195,6 +195,35 @@ input:focus-visible {
 
 .listening-status.is-live {
   color: var(--accent);
+}
+
+.skip-ahead-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 13px;
+  background: #202021;
+  color: #aaa8a2;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.skip-ahead-button.is-active {
+  border-color: rgba(255, 173, 40, 0.38);
+  background: rgba(255, 173, 40, 0.12);
+  color: var(--accent);
+}
+
+.skip-ahead-button:active {
+  transform: scale(0.98);
 }
 
 .listening-status.is-live svg {
@@ -1096,17 +1125,18 @@ input:focus-visible {
   }
 
   .topbar__controls {
-    grid-template-columns: 260px 150px 110px 138px 118px;
-    gap: 12px;
+    grid-template-columns: 244px 140px 92px 96px 126px 108px;
+    gap: 8px;
     transform: none;
   }
 
   .edit-button,
-  .microphone-test-button {
+  .microphone-test-button,
+  .skip-ahead-button {
     width: auto;
     transform: none;
-    padding-right: 12px;
-    padding-left: 12px;
+    padding-right: 10px;
+    padding-left: 10px;
     font-size: 15px;
   }
 
@@ -1179,12 +1209,13 @@ input:focus-visible {
   }
 
   .topbar__controls {
-    grid-template-columns: minmax(182px, 1.45fr) 46px 76px 46px 46px;
+    grid-template-columns: minmax(158px, 1.45fr) 44px 44px 68px 44px 44px;
     gap: 7px;
   }
 
   .segmented,
   .listening-status,
+  .skip-ahead-button,
   .speed-select,
   .microphone-test-button,
   .edit-button {
@@ -1203,6 +1234,7 @@ input:focus-visible {
   }
 
   .listening-status span,
+  .skip-ahead-button span,
   .microphone-test-button span,
   .edit-button span,
   .speed-select > span,
@@ -1220,7 +1252,8 @@ input:focus-visible {
   }
 
   .microphone-test-button,
-  .edit-button {
+  .edit-button,
+  .skip-ahead-button {
     width: 46px;
     padding: 0;
   }
@@ -1332,7 +1365,7 @@ input:focus-visible {
   }
 
   .topbar__controls {
-    grid-template-columns: minmax(156px, 1fr) 40px 62px 40px 40px;
+    grid-template-columns: minmax(142px, 1fr) 38px 38px 58px 38px 38px;
     gap: 5px;
   }
 

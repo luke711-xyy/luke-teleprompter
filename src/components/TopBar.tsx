@@ -1,4 +1,4 @@
-import { ChevronDown, Mic, Pencil, Radio } from "lucide-react";
+import { ChevronDown, Mic, Pencil, Radio, Shuffle } from "lucide-react";
 import type { ModelState, RecognitionState, ScrollMode } from "../lib/types";
 
 interface TopBarProps {
@@ -6,8 +6,10 @@ interface TopBarProps {
   speed: number;
   modelState: ModelState;
   recognitionState: RecognitionState["state"];
+  skipAheadEnabled: boolean;
   onModeChange: (mode: ScrollMode) => void;
   onSpeedChange: (speed: number) => void;
+  onToggleSkipAhead: () => void;
   onEdit: () => void;
   onMicrophoneTest: () => void;
 }
@@ -27,8 +29,10 @@ export function TopBar({
   speed,
   modelState,
   recognitionState,
+  skipAheadEnabled,
   onModeChange,
   onSpeedChange,
+  onToggleSkipAhead,
   onEdit,
   onMicrophoneTest,
 }: TopBarProps) {
@@ -59,6 +63,16 @@ export function TopBar({
           <Mic size={21} strokeWidth={2} />
           <span>{listeningLabel(modelState, recognitionState, mode)}</span>
         </div>
+
+        <button
+          className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
+          onClick={onToggleSkipAhead}
+          aria-pressed={skipAheadEnabled}
+          title={skipAheadEnabled ? "跳读已开启：可根据后文匹配追赶" : "跳读已关闭：只按当前位置顺序阅读"}
+        >
+          <Shuffle size={18} />
+          <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>
+        </button>
 
         <label className={`speed-select ${mode === "follow" ? "is-muted" : ""}`}>
           <span>速度</span>

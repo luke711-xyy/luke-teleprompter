@@ -27,15 +27,17 @@ export function findForwardMatch(
   document: ScriptDocument,
   currentSearchableIndex: number,
   maxLookahead = 180,
+  allowSkipAhead = true,
 ): FollowMatch | null {
   const allRecognized = searchableUnits(recognizedText);
   if (allRecognized.length < 2 || document.searchableTokens.length === 0) return null;
 
   const recognized = allRecognized.slice(-18);
   const searchEnd = Math.min(document.searchableTokens.length, currentSearchableIndex + maxLookahead);
+  const startEnd = allowSkipAhead ? searchEnd : Math.min(searchEnd, currentSearchableIndex + 1);
   let best: FollowMatch | null = null;
 
-  for (let start = currentSearchableIndex; start < searchEnd; start += 1) {
+  for (let start = currentSearchableIndex; start < startEnd; start += 1) {
     for (let suffixStart = 0; suffixStart <= Math.max(0, recognized.length - 2); suffixStart += 1) {
       const heard = recognized.slice(suffixStart);
       const minLength = Math.max(2, heard.length - 2);

@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   fontSize: 68,
   focusPosition: 50,
   dimStrength: 100,
+  skipAheadEnabled: true,
   mirrored: false,
   activeTokenIndex: 28,
 };
@@ -37,7 +38,10 @@ export function loadSettings(): PersistedSettings {
     const dimStrength = typeof parsed.dimStrength === "number"
       ? Math.min(DIM_STRENGTH_MAX, Math.max(DIM_STRENGTH_MIN, parsed.dimStrength))
       : DEFAULT_SETTINGS.dimStrength;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize, dimStrength };
+    const skipAheadEnabled = typeof parsed.skipAheadEnabled === "boolean"
+      ? parsed.skipAheadEnabled
+      : DEFAULT_SETTINGS.skipAheadEnabled;
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize, dimStrength, skipAheadEnabled };
   } catch {
     return DEFAULT_SETTINGS;
   }

@@ -178,6 +178,20 @@ describe("microphone test panel", () => {
     });
   });
 
+  it("toggles and persists skip-ahead matching", async () => {
+    render(<App />);
+
+    const skipButton = screen.getByRole("button", { name: "跳读开" });
+    expect(skipButton).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(skipButton);
+
+    expect(screen.getByRole("button", { name: "顺序读" })).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").skipAheadEnabled).toBe(false);
+    });
+  });
+
   it("toggles the pure reading mode chrome", () => {
     render(<App />);
 
