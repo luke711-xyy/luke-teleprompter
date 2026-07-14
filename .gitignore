@@ -1,0 +1,14 @@
+node_modules
+dist
+.DS_Store
+src-tauri/target
+*.log
+.idea
+.vscode
+qa/*.png
+!qa/.gitkeep
+output/playwright/
+.playwright-cli/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
