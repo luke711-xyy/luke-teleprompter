@@ -38,4 +38,21 @@ describe("script parsing", () => {
     expect(document.tokens[lastSentenceToken(document)].text).toBe("Third");
     expect(document.tokens[lastSentenceToken(document)].sentenceIndex).toBe(2);
   });
+
+  it("extracts double-slash action cues without making them searchable", () => {
+    const document = parseScript("大家好，//动作 1//今天我们开始。Next line //look at camera// now.");
+
+    expect(document.actionCues).toEqual([
+      expect.objectContaining({ text: "动作 1", sentenceIndex: 0 }),
+      expect.objectContaining({ text: "look at camera", sentenceIndex: 1 }),
+    ]);
+    expect(document.tokens.filter((token) => token.kind === "cue").map((token) => token.text)).toEqual([
+      "动作 1",
+      "look at camera",
+    ]);
+    expect(document.searchableTokens.map((token) => token.normalized)).not.toContain("动作");
+    expect(document.searchableTokens.map((token) => token.normalized)).not.toContain("look");
+    expect(document.searchableTokens.map((token) => token.normalized)).toContain("今");
+    expect(document.searchableTokens.map((token) => token.normalized)).toContain("now");
+  });
 });

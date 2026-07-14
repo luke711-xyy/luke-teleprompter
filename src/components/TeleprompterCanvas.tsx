@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
 
@@ -24,16 +24,36 @@ interface TeleprompterCanvasProps {
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
   function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, mirrored, mode, onManualScroll }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
+    const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
+    const cueAnchorRefs = useRef(new Map<number, HTMLSpanElement>());
     const programmaticScroll = useRef(false);
     const scrollFrameRef = useRef<number | null>(null);
     const scrollUnlockTimerRef = useRef<number | null>(null);
+    const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; isActive: boolean }>>([]);
     const activeSentence = document.tokens[activeTokenIndex]?.sentenceIndex ?? 0;
 
     const promptClass = useMemo(
-      () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
-      [mirrored],
+      () => `prompt-script ${document.actionCues.length ? "has-action-cues" : ""} ${mirrored ? "is-mirrored" : ""}`,
+      [document.actionCues.length, mirrored],
     );
+
+    const updateCuePlacements = useCallback(() => {
+      if (!document.actionCues.length) {
+        setCuePlacements([]);
+        return;
+      }
+
+      setCuePlacements(document.actionCues.map((cue) => {
+        const anchor = cueAnchorRefs.current.get(cue.tokenIndex);
+        return {
+          id: cue.id,
+          text: cue.text,
+          top: anchor?.offsetTop ?? 0,
+          isActive: cue.sentenceIndex === activeSentence,
+        };
+      }));
+    }, [activeSentence, document.actionCues]);
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
@@ -136,6 +156,29 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       if (scrollUnlockTimerRef.current !== null) window.clearTimeout(scrollUnlockTimerRef.current);
     }, []);
 
+    useLayoutEffect(() => {
+      const frame = window.requestAnimationFrame(updateCuePlacements);
+      return () => window.cancelAnimationFrame(frame);
+    }, [fontSize, updateCuePlacements]);
+
+    useEffect(() => {
+      const scriptNode = scriptRef.current;
+      if (!scriptNode || !document.actionCues.length) return;
+
+      if (typeof ResizeObserver === "undefined") {
+        window.addEventListener("resize", updateCuePlacements);
+        return () => window.removeEventListener("resize", updateCuePlacements);
+      }
+
+      const observer = new ResizeObserver(updateCuePlacements);
+      observer.observe(scriptNode);
+      window.addEventListener("resize", updateCuePlacements);
+      return () => {
+        observer.disconnect();
+        window.removeEventListener("resize", updateCuePlacements);
+      };
+    }, [document.actionCues.length, updateCuePlacements]);
+
     return (
       <main className="reading-stage">
         <div className="focus-band" style={{ top: `${focusPosition}%` }} aria-hidden="true">
@@ -148,10 +191,36 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
             if (!programmaticScroll.current) onManualScroll?.();
           }}
         >
-          <div className={promptClass} style={{ fontSize: `${fontSize}px` }}>
+          <div className={promptClass} ref={scriptRef} style={{ fontSize: `${fontSize}px` }}>
+            {cuePlacements.length > 0 && (
+              <aside className="action-cue-layer" aria-label="动作提示">
+                {cuePlacements.map((cue) => (
+                  <div
+                    key={cue.id}
+                    className={`action-cue-card ${cue.isActive ? "is-active" : ""}`}
+                    style={{ top: `${cue.top}px` }}
+                  >
+                    {cue.text}
+                  </div>
+                ))}
+              </aside>
+            )}
             {document.tokens.map((token) => {
               if (token.kind === "linebreak") return <br key={token.id} />;
               if (token.kind === "space") return <span key={token.id}>{token.text}</span>;
+              if (token.kind === "cue") {
+                return (
+                  <span
+                    key={token.id}
+                    ref={(node) => {
+                      if (node) cueAnchorRefs.current.set(token.id, node);
+                      else cueAnchorRefs.current.delete(token.id);
+                    }}
+                    className="action-cue-anchor"
+                    aria-hidden="true"
+                  />
+                );
+              }
               const sentenceClass = token.sentenceIndex < activeSentence
                 ? "is-past"
                 : token.sentenceIndex === activeSentence

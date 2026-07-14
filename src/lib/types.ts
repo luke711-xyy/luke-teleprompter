@@ -1,6 +1,6 @@
 export type ScrollMode = "follow" | "steady";
 
-export type TokenKind = "latin" | "cjk" | "space" | "linebreak" | "punctuation";
+export type TokenKind = "latin" | "cjk" | "space" | "linebreak" | "punctuation" | "cue";
 
 export interface ScriptToken {
   id: number;
@@ -11,10 +11,18 @@ export interface ScriptToken {
   searchableIndex: number | null;
 }
 
+export interface ActionCue {
+  id: number;
+  text: string;
+  tokenIndex: number;
+  sentenceIndex: number;
+}
+
 export interface ScriptDocument {
   tokens: ScriptToken[];
   sentenceStarts: number[];
   searchableTokens: Array<{ normalized: string; displayIndex: number; sentenceIndex: number }>;
+  actionCues: ActionCue[];
 }
 
 export interface FollowMatch {

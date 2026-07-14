@@ -169,4 +169,19 @@ describe("microphone test panel", () => {
       expect(orientationLockMock).toHaveBeenCalledWith("landscape");
     });
   });
+
+  it("renders double-slash action cues in the prompt surface after editing", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /编辑文稿/ }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "开场介绍。//动作 1//接下来展示产品价值。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "应用文稿" }));
+
+    await waitFor(() => {
+      expect(globalThis.document.querySelector(".action-cue-card")?.textContent).toBe("动作 1");
+    });
+    expect(screen.queryByText("//动作 1//")).not.toBeInTheDocument();
+  });
 });

@@ -261,6 +261,7 @@ input:focus-visible {
 }
 
 .prompt-script {
+  position: relative;
   width: 100%;
   max-width: 1586px;
   min-height: 100%;
@@ -277,8 +278,53 @@ input:focus-visible {
   transition: transform 220ms ease;
 }
 
+.prompt-script.has-action-cues {
+  padding-left: clamp(184px, 15vw, 270px);
+}
+
 .prompt-script.is-mirrored {
   transform: scaleX(-1);
+}
+
+.action-cue-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(44px, 5vw, 88px);
+  width: clamp(96px, 8vw, 132px);
+  pointer-events: none;
+}
+
+.action-cue-card {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 173, 40, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 173, 40, 0.08);
+  color: #d8d4c9;
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.45;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  transform: translateY(-0.1em);
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.action-cue-card.is-active {
+  border-color: rgba(255, 173, 40, 0.55);
+  background: rgba(255, 173, 40, 0.16);
+  color: #fff3d7;
+}
+
+.action-cue-anchor {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: baseline;
 }
 
 .prompt-token {
@@ -980,6 +1026,15 @@ input:focus-visible {
     padding-left: 92px;
   }
 
+  .prompt-script.has-action-cues {
+    padding-left: 178px;
+  }
+
+  .action-cue-layer {
+    left: 40px;
+    width: 104px;
+  }
+
   .bottom-controls {
     padding-right: 4vw;
     padding-left: 4vw;
@@ -1104,6 +1159,22 @@ input:focus-visible {
     max-width: none;
     padding: 42dvh max(42px, calc(env(safe-area-inset-right) + 32px)) 48dvh max(56px, calc(env(safe-area-inset-left) + 48px));
     line-height: 1.36;
+  }
+
+  .prompt-script.has-action-cues {
+    padding-left: max(112px, calc(env(safe-area-inset-left) + 104px));
+  }
+
+  .action-cue-layer {
+    left: max(16px, env(safe-area-inset-left));
+    width: 78px;
+  }
+
+  .action-cue-card {
+    padding: 6px 7px;
+    border-radius: 8px;
+    font-size: 10px;
+    line-height: 1.35;
   }
 
   .bottom-controls {
@@ -1241,6 +1312,19 @@ input:focus-visible {
 
   .position-control__input-row {
     grid-template-columns: 1fr;
+  }
+
+  .prompt-script.has-action-cues {
+    padding-left: max(92px, calc(env(safe-area-inset-left) + 86px));
+  }
+
+  .action-cue-layer {
+    width: 64px;
+  }
+
+  .action-cue-card {
+    padding: 5px 6px;
+    font-size: 9px;
   }
 }
 

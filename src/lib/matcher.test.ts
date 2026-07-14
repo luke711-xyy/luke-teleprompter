@@ -52,4 +52,14 @@ describe("forward script matching", () => {
     expect(match).not.toBeNull();
     expect(document.tokens[match!.displayTokenIndex].text).toBe("works.");
   });
+
+  it("ignores action cues as recognition targets while matching nearby spoken script", () => {
+    const document = parseScript("开场介绍。//举手示意//接下来展示产品价值。");
+
+    expect(findForwardMatch("举手示意", document, 0)).toBeNull();
+
+    const match = findForwardMatch("接下来展示产品价值", document, 0);
+    expect(match).not.toBeNull();
+    expect(document.tokens[match!.displayTokenIndex].sentenceIndex).toBe(1);
+  });
 });
