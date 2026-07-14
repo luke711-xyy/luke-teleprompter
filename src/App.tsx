@@ -9,6 +9,8 @@ import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
 import { findForwardMatch, MatchHysteresis } from "./lib/matcher";
 import {
+  firstSentenceToken,
+  lastSentenceToken,
   nextSentenceToken,
   parseScript,
   previousSentenceToken,
@@ -353,6 +355,10 @@ export default function App() {
         moveToToken(previousSentenceToken(document, activeTokenIndex));
       } else if (event.key === "ArrowRight") {
         moveToToken(nextSentenceToken(document, activeTokenIndex));
+      } else if (event.key === "Home") {
+        moveToToken(firstSentenceToken(document));
+      } else if (event.key === "End") {
+        moveToToken(lastSentenceToken(document));
       } else if (event.key.toLowerCase() === "m") {
         setMirrored((value) => !value);
       } else if (event.key.toLowerCase() === "f") {
@@ -415,9 +421,11 @@ export default function App() {
         fullscreen={fullscreen}
         fontSize={fontSize}
         focusPosition={focusPosition}
+        onFirst={() => moveToToken(firstSentenceToken(document))}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
         onTogglePlaying={() => setPlaying((value) => !value)}
         onNext={() => moveToToken(nextSentenceToken(document, activeTokenIndex))}
+        onLast={() => moveToToken(lastSentenceToken(document))}
         onFontSizeChange={setFontSize}
         onFocusPositionChange={setFocusPosition}
         onToggleMirror={() => setMirrored((value) => !value)}

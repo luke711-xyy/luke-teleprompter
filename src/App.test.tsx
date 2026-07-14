@@ -133,4 +133,17 @@ describe("microphone test panel", () => {
       expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusPosition).toBe(36);
     });
   });
+
+  it("jumps to the first and last sentences from the transport controls", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "第一句" }));
+    expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("在");
+
+    fireEvent.click(screen.getByRole("button", { name: "最后一句" }));
+    expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("接");
+  });
 });

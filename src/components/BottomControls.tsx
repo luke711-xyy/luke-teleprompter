@@ -2,6 +2,8 @@ import {
   CaseSensitive,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Maximize,
   Minimize,
   MoveVertical,
@@ -17,9 +19,11 @@ interface BottomControlsProps {
   fullscreen: boolean;
   fontSize: number;
   focusPosition: number;
+  onFirst: () => void;
   onPrevious: () => void;
   onTogglePlaying: () => void;
   onNext: () => void;
+  onLast: () => void;
   onFontSizeChange: (value: number) => void;
   onFocusPositionChange: (value: number) => void;
   onToggleMirror: () => void;
@@ -32,9 +36,11 @@ export function BottomControls({
   fullscreen,
   fontSize,
   focusPosition,
+  onFirst,
   onPrevious,
   onTogglePlaying,
   onNext,
+  onLast,
   onFontSizeChange,
   onFocusPositionChange,
   onToggleMirror,
@@ -43,7 +49,20 @@ export function BottomControls({
   return (
     <footer className="bottom-controls">
       <div className="transport-controls">
-        <IconButton icon={<ChevronLeft size={24} />} label="上一句" onClick={onPrevious} compact />
+        <IconButton
+          icon={<ChevronsLeft size={20} />}
+          label="第一句"
+          onClick={onFirst}
+          className="transport-button transport-button--edge"
+          compact
+        />
+        <IconButton
+          icon={<ChevronLeft size={22} />}
+          label="上一句"
+          onClick={onPrevious}
+          className="transport-button"
+          compact
+        />
         <button
           className="play-button"
           onClick={onTogglePlaying}
@@ -51,7 +70,20 @@ export function BottomControls({
         >
           {playing ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" />}
         </button>
-        <IconButton icon={<ChevronRight size={24} />} label="下一句" onClick={onNext} compact />
+        <IconButton
+          icon={<ChevronRight size={22} />}
+          label="下一句"
+          onClick={onNext}
+          className="transport-button"
+          compact
+        />
+        <IconButton
+          icon={<ChevronsRight size={20} />}
+          label="最后一句"
+          onClick={onLast}
+          className="transport-button transport-button--edge"
+          compact
+        />
       </div>
 
       <div className="utility-controls">

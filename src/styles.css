@@ -322,11 +322,12 @@ input:focus-visible {
 
 .transport-controls {
   display: grid;
-  grid-template-columns: 140px 140px 140px;
-  gap: 70px;
-  width: 560px;
+  grid-template-columns: 72px 88px 76px 88px 72px;
+  gap: 8px;
+  width: 428px;
   max-width: none;
-  margin-left: clamp(80px, 12vw, 190px);
+  margin: 0 auto;
+  justify-self: center;
 }
 
 .utility-controls {
@@ -362,6 +363,24 @@ input:focus-visible {
   flex-direction: row;
   gap: 8px;
   min-width: 108px;
+}
+
+.transport-button {
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.transport-button .icon-button__label {
+  font-size: 13px;
+}
+
+.transport-button--edge {
+  gap: 2px;
+  padding: 0;
+}
+
+.transport-button--edge .icon-button__label {
+  font-size: 12px;
 }
 
 .icon-button__icon {
@@ -914,10 +933,10 @@ input:focus-visible {
   }
 
   .transport-controls {
-    grid-template-columns: 120px 120px 120px;
-    gap: 28px;
-    width: 416px;
-    margin-left: 40px;
+    grid-template-columns: 72px 88px 76px 88px 72px;
+    gap: 8px;
+    width: 428px;
+    margin: 0 auto;
   }
 
   .utility-controls {

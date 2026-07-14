@@ -78,3 +78,14 @@ export function previousSentenceToken(document: ScriptDocument, activeIndex: num
   const targetSentence = Math.max(0, sentence - 1);
   return document.tokens.find((token) => token.sentenceIndex === targetSentence && token.normalized)?.id ?? 0;
 }
+
+export function firstSentenceToken(document: ScriptDocument): number {
+  return document.searchableTokens[0]?.displayIndex ?? 0;
+}
+
+export function lastSentenceToken(document: ScriptDocument): number {
+  const lastSearchable = document.searchableTokens.at(-1);
+  if (!lastSearchable) return 0;
+  return document.searchableTokens.find((token) => token.sentenceIndex === lastSearchable.sentenceIndex)?.displayIndex
+    ?? lastSearchable.displayIndex;
+}
