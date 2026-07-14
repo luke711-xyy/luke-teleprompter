@@ -174,18 +174,23 @@ describe("microphone test panel", () => {
     });
   });
 
-  it("renders double-slash action cues in the prompt surface after editing", async () => {
+  it("renders inline action cues and emphasized text after editing", async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: /编辑文稿/ }));
+    expect(screen.getByLabelText("文稿格式提示")).toHaveTextContent("//动作提示//");
+    expect(screen.getByLabelText("文稿格式提示")).toHaveTextContent("**重点词**");
+
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "开场介绍。//动作 1//接下来展示产品价值。" },
+      target: { value: "开场介绍。//动作 1//接下来展示**产品价值**。" },
     });
     fireEvent.click(screen.getByRole("button", { name: "应用文稿" }));
 
     await waitFor(() => {
-      expect(globalThis.document.querySelector(".action-cue-card")?.textContent).toBe("动作 1");
+      expect(globalThis.document.querySelector(".inline-cue-token")?.textContent).toBe("动作 1");
     });
+    expect([...globalThis.document.querySelectorAll(".prompt-token.is-emphasized")].map((node) => node.textContent).join("")).toBe("产品价值");
     expect(screen.queryByText("//动作 1//")).not.toBeInTheDocument();
+    expect(screen.queryByText("**产品价值**")).not.toBeInTheDocument();
   });
 });

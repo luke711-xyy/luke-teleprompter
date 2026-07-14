@@ -62,4 +62,11 @@ describe("forward script matching", () => {
     expect(match).not.toBeNull();
     expect(document.tokens[match!.displayTokenIndex].sentenceIndex).toBe(1);
   });
+
+  it("matches emphasized text as normal spoken script", () => {
+    const document = parseScript("今天我们介绍 **Product 2** 和 **重点词**。");
+
+    expect(findForwardMatch("product 2", document, 0)).not.toBeNull();
+    expect(findForwardMatch("重点词", document, 0)).not.toBeNull();
+  });
 });

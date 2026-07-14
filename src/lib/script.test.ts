@@ -42,10 +42,6 @@ describe("script parsing", () => {
   it("extracts double-slash action cues without making them searchable", () => {
     const document = parseScript("大家好，//动作 1//今天我们开始。Next line //look at camera// now.");
 
-    expect(document.actionCues).toEqual([
-      expect.objectContaining({ text: "动作 1", sentenceIndex: 0 }),
-      expect.objectContaining({ text: "look at camera", sentenceIndex: 1 }),
-    ]);
     expect(document.tokens.filter((token) => token.kind === "cue").map((token) => token.text)).toEqual([
       "动作 1",
       "look at camera",
@@ -54,5 +50,16 @@ describe("script parsing", () => {
     expect(document.searchableTokens.map((token) => token.normalized)).not.toContain("look");
     expect(document.searchableTokens.map((token) => token.normalized)).toContain("今");
     expect(document.searchableTokens.map((token) => token.normalized)).toContain("now");
+  });
+
+  it("marks double-star text as emphasized while keeping it searchable", () => {
+    const document = parseScript("今天我们介绍 **Product 2** 和 **重点词**。");
+    const emphasized = document.tokens.filter((token) => token.emphasized).map((token) => token.text);
+
+    expect(emphasized).toEqual(["Product", " ", "2", "重", "点", "词"]);
+    expect(document.searchableTokens.map((token) => token.normalized)).toEqual(expect.arrayContaining([
+      "product", "2", "重", "点", "词",
+    ]));
+    expect(document.tokens.map((token) => token.text).join("")).not.toContain("**");
   });
 });

@@ -27,38 +27,19 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
-    const cueAnchorRefs = useRef(new Map<number, HTMLSpanElement>());
+    const visibleTokenRefs = useRef(new Map<number, HTMLSpanElement>());
     const programmaticScroll = useRef(false);
     const scrollFrameRef = useRef<number | null>(null);
     const scrollUnlockTimerRef = useRef<number | null>(null);
-    const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; isActive: boolean }>>([]);
     const [focusedLineTokenIds, setFocusedLineTokenIds] = useState<Set<number>>(() => new Set([activeTokenIndex]));
-    const activeSentence = document.tokens[activeTokenIndex]?.sentenceIndex ?? 0;
 
     const promptClass = useMemo(
-      () => `prompt-script ${document.actionCues.length ? "has-action-cues" : ""} ${mirrored ? "is-mirrored" : ""}`,
-      [document.actionCues.length, mirrored],
+      () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
+      [mirrored],
     );
 
-    const updateCuePlacements = useCallback(() => {
-      if (!document.actionCues.length) {
-        setCuePlacements([]);
-        return;
-      }
-
-      setCuePlacements(document.actionCues.map((cue) => {
-        const anchor = cueAnchorRefs.current.get(cue.tokenIndex);
-        return {
-          id: cue.id,
-          text: cue.text,
-          top: anchor?.offsetTop ?? 0,
-          isActive: cue.sentenceIndex === activeSentence,
-        };
-      }));
-    }, [activeSentence, document.actionCues]);
-
     const updateFocusedLineTokens = useCallback(() => {
-      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const measurements = [...visibleTokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * 1.42);
       setFocusedLineTokenIds((current) => {
         if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
@@ -68,13 +49,13 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
-      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const measurements = [...visibleTokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, fontSize * 1.42);
-      const token = tokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
+      const token = visibleTokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
       if (!viewport || !token) return;
 
       const lineHeight = fontSize * 1.42;
-      const nextLineToken = [...tokenRefs.current.entries()]
+      const nextLineToken = [...visibleTokenRefs.current.entries()]
         .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + lineHeight * 0.5)
         .sort(([left], [right]) => left - right)[0]?.[1];
       const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
@@ -170,35 +151,27 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     }, []);
 
     useLayoutEffect(() => {
-      const frame = window.requestAnimationFrame(() => {
-        updateCuePlacements();
-        updateFocusedLineTokens();
-      });
+      const frame = window.requestAnimationFrame(updateFocusedLineTokens);
       return () => window.cancelAnimationFrame(frame);
-    }, [fontSize, updateCuePlacements, updateFocusedLineTokens]);
+    }, [fontSize, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
       if (!scriptNode) return;
 
-      const updateMeasurements = () => {
-        updateCuePlacements();
-        updateFocusedLineTokens();
-      };
-
       if (typeof ResizeObserver === "undefined") {
-        window.addEventListener("resize", updateMeasurements);
-        return () => window.removeEventListener("resize", updateMeasurements);
+        window.addEventListener("resize", updateFocusedLineTokens);
+        return () => window.removeEventListener("resize", updateFocusedLineTokens);
       }
 
-      const observer = new ResizeObserver(updateMeasurements);
+      const observer = new ResizeObserver(updateFocusedLineTokens);
       observer.observe(scriptNode);
-      window.addEventListener("resize", updateMeasurements);
+      window.addEventListener("resize", updateFocusedLineTokens);
       return () => {
         observer.disconnect();
-        window.removeEventListener("resize", updateMeasurements);
+        window.removeEventListener("resize", updateFocusedLineTokens);
       };
-    }, [updateCuePlacements, updateFocusedLineTokens]);
+    }, [updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">
@@ -213,44 +186,37 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           }}
         >
           <div className={promptClass} ref={scriptRef} style={{ fontSize: `${fontSize}px` }}>
-            {cuePlacements.length > 0 && (
-              <aside className="action-cue-layer" aria-label="动作提示">
-                {cuePlacements.map((cue) => (
-                  <div
-                    key={cue.id}
-                    className={`action-cue-card ${cue.isActive ? "is-active" : ""}`}
-                    style={{ top: `${cue.top}px` }}
-                  >
-                    {cue.text}
-                  </div>
-                ))}
-              </aside>
-            )}
             {document.tokens.map((token) => {
               if (token.kind === "linebreak") return <br key={token.id} />;
               if (token.kind === "space") return <span key={token.id}>{token.text}</span>;
+              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
               if (token.kind === "cue") {
                 return (
                   <span
                     key={token.id}
                     ref={(node) => {
-                      if (node) cueAnchorRefs.current.set(token.id, node);
-                      else cueAnchorRefs.current.delete(token.id);
+                      if (node) visibleTokenRefs.current.set(token.id, node);
+                      else visibleTokenRefs.current.delete(token.id);
                     }}
-                    className="action-cue-anchor"
-                    aria-hidden="true"
-                  />
+                    className={`inline-cue-token ${focusClass}`}
+                  >
+                    {token.text}
+                  </span>
                 );
               }
-              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
               return (
                 <span
                   key={token.id}
                   ref={(node) => {
-                    if (node) tokenRefs.current.set(token.id, node);
-                    else tokenRefs.current.delete(token.id);
+                    if (node) {
+                      tokenRefs.current.set(token.id, node);
+                      visibleTokenRefs.current.set(token.id, node);
+                    } else {
+                      tokenRefs.current.delete(token.id);
+                      visibleTokenRefs.current.delete(token.id);
+                    }
                   }}
-                  className={`prompt-token token-${token.kind} ${focusClass} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
+                  className={`prompt-token token-${token.kind} ${focusClass} ${token.emphasized ? "is-emphasized" : ""} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
                   data-token-index={token.id}
                 >
                   {token.text}

@@ -9,20 +9,13 @@ export interface ScriptToken {
   kind: TokenKind;
   sentenceIndex: number;
   searchableIndex: number | null;
-}
-
-export interface ActionCue {
-  id: number;
-  text: string;
-  tokenIndex: number;
-  sentenceIndex: number;
+  emphasized: boolean;
 }
 
 export interface ScriptDocument {
   tokens: ScriptToken[];
   sentenceStarts: number[];
   searchableTokens: Array<{ normalized: string; displayIndex: number; sentenceIndex: number }>;
-  actionCues: ActionCue[];
 }
 
 export interface FollowMatch {

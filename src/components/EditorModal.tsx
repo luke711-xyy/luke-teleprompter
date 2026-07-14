@@ -59,6 +59,11 @@ export function EditorModal({
           <button className="close-button" onClick={onClose} aria-label="关闭编辑器"><X size={22} /></button>
         </header>
 
+        <div className="editor-syntax-hint" aria-label="文稿格式提示">
+          <span><code>//动作提示//</code> 插入内联提示框</span>
+          <span><code>**重点词**</code> 显示黄色，仍参与跟读识别</span>
+        </div>
+
         <textarea
           ref={textareaRef}
           value={draft}

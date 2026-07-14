@@ -3,6 +3,8 @@ export interface TokenLineMeasurement {
   top: number;
 }
 
+const LEAD_LINE_PROMOTION_PROGRESS = 0.35;
+
 function sortedMeasurements(measurements: TokenLineMeasurement[]): TokenLineMeasurement[] {
   return [...measurements].sort((left, right) => left.top - right.top || left.id - right.id);
 }
@@ -46,7 +48,7 @@ function leadingLineTop(
     ? activePosition / (currentLineIds.length - 1)
     : 0;
 
-  return activeProgress >= 0.58 ? nextTop : currentTop;
+  return activeProgress >= LEAD_LINE_PROMOTION_PROGRESS ? nextTop : currentTop;
 }
 
 export function focusedTwoLineTokenIds(

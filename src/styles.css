@@ -278,57 +278,32 @@ input:focus-visible {
   transition: transform 220ms ease;
 }
 
-.prompt-script.has-action-cues {
-  padding-left: clamp(184px, 15vw, 270px);
-}
-
 .prompt-script.is-mirrored {
   transform: scaleX(-1);
 }
 
-.action-cue-layer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: clamp(44px, 5vw, 88px);
-  width: clamp(96px, 8vw, 132px);
-  pointer-events: none;
-}
-
-.action-cue-card {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid rgba(255, 173, 40, 0.22);
-  border-radius: 10px;
-  background: rgba(255, 173, 40, 0.08);
-  color: #d8d4c9;
-  font-size: 14px;
-  font-weight: 560;
-  line-height: 1.45;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-  transform: translateY(-0.1em);
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
-}
-
-.action-cue-card.is-active {
-  border-color: rgba(255, 173, 40, 0.55);
-  background: rgba(255, 173, 40, 0.16);
-  color: #fff3d7;
-}
-
-.action-cue-anchor {
-  display: inline-block;
-  width: 0;
-  height: 1em;
-  overflow: hidden;
-  vertical-align: baseline;
-}
-
 .prompt-token {
   transition: color 280ms ease, opacity 280ms ease, text-shadow 280ms ease;
+}
+
+.inline-cue-token {
+  display: inline-flex;
+  max-width: min(18em, 42vw);
+  margin: 0 0.26em;
+  padding: 0.16em 0.46em;
+  align-items: center;
+  border: 1px solid rgba(255, 173, 40, 0.32);
+  border-radius: 0.42em;
+  background: rgba(255, 173, 40, 0.11);
+  color: #d9d2c2;
+  font-size: 0.38em;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+  white-space: normal;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
 .token-latin {
@@ -345,6 +320,27 @@ input:focus-visible {
 .prompt-token.is-dimmed-line {
   color: #343435;
   text-shadow: none;
+}
+
+.prompt-token.is-focused-line.is-emphasized {
+  color: #ffd15f;
+  text-shadow: 0 1px 18px rgba(255, 173, 40, 0.16);
+}
+
+.prompt-token.is-dimmed-line.is-emphasized {
+  color: #5e461f;
+}
+
+.inline-cue-token.is-dimmed-line {
+  border-color: rgba(255, 173, 40, 0.1);
+  background: rgba(255, 173, 40, 0.04);
+  color: #40372a;
+}
+
+.inline-cue-token.is-focused-line {
+  border-color: rgba(255, 173, 40, 0.52);
+  background: rgba(255, 173, 40, 0.15);
+  color: #fff0c7;
 }
 
 .bottom-controls {
@@ -567,7 +563,7 @@ input:focus-visible {
 
 .editor-modal {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(980px, 88vw);
   height: min(720px, 82vh);
   overflow: hidden;
@@ -612,6 +608,27 @@ input:focus-visible {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
   cursor: pointer;
+}
+
+.editor-syntax-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #131314;
+  color: #aaa8a2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.editor-syntax-hint code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(255, 173, 40, 0.12);
+  color: #ffd15f;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
 }
 
 .editor-modal textarea {
@@ -1023,15 +1040,6 @@ input:focus-visible {
     padding-left: 92px;
   }
 
-  .prompt-script.has-action-cues {
-    padding-left: 178px;
-  }
-
-  .action-cue-layer {
-    left: 40px;
-    width: 104px;
-  }
-
   .bottom-controls {
     padding-right: 4vw;
     padding-left: 4vw;
@@ -1156,22 +1164,6 @@ input:focus-visible {
     max-width: none;
     padding: 42dvh max(42px, calc(env(safe-area-inset-right) + 32px)) 48dvh max(56px, calc(env(safe-area-inset-left) + 48px));
     line-height: 1.36;
-  }
-
-  .prompt-script.has-action-cues {
-    padding-left: max(112px, calc(env(safe-area-inset-left) + 104px));
-  }
-
-  .action-cue-layer {
-    left: max(16px, env(safe-area-inset-left));
-    width: 78px;
-  }
-
-  .action-cue-card {
-    padding: 6px 7px;
-    border-radius: 8px;
-    font-size: 10px;
-    line-height: 1.35;
   }
 
   .bottom-controls {
@@ -1311,18 +1303,6 @@ input:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .prompt-script.has-action-cues {
-    padding-left: max(92px, calc(env(safe-area-inset-left) + 86px));
-  }
-
-  .action-cue-layer {
-    width: 64px;
-  }
-
-  .action-cue-card {
-    padding: 5px 6px;
-    font-size: 9px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

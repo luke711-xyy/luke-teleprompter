@@ -1,7 +1,7 @@
-import type { ActionCue, ScriptDocument, ScriptToken, TokenKind } from "./types";
+import type { ScriptDocument, ScriptToken, TokenKind } from "./types";
 
 const TOKEN_PATTERN = /\r\n|\n|[\t ]+|[\p{Script=Han}]|[A-Za-z0-9]+(?:[’'-][A-Za-z0-9]+)*(?:[.,!?;:]*)|[^\s]/gu;
-const ACTION_CUE_PATTERN = /\/\/([^\r\n]*?)\/\//gu;
+const INLINE_MARKUP_PATTERN = /\/\/([^\r\n]*?)\/\/|\*\*([^\r\n]*?)\*\*/gu;
 const SENTENCE_END = /[。！？!?；;.]$|\n/u;
 
 function tokenKind(value: string): TokenKind {
@@ -29,11 +29,10 @@ export function parseScript(script: string): ScriptDocument {
   const tokens: ScriptToken[] = [];
   const sentenceStarts: number[] = [0];
   const searchableTokens: ScriptDocument["searchableTokens"] = [];
-  const actionCues: ActionCue[] = [];
   let sentenceIndex = 0;
   let tokenId = 0;
 
-  const pushTextToken = (text: string) => {
+  const pushTextToken = (text: string, emphasized = false) => {
     const kind = tokenKind(text);
     const normalized = kind === "latin" || kind === "cjk" ? normalizeUnit(text) : "";
     const searchableIndex = normalized ? searchableTokens.length : null;
@@ -44,6 +43,7 @@ export function parseScript(script: string): ScriptDocument {
       kind,
       sentenceIndex,
       searchableIndex,
+      emphasized,
     };
     tokens.push(token);
 
@@ -59,12 +59,12 @@ export function parseScript(script: string): ScriptDocument {
     }
   };
 
-  const pushTextSegment = (value: string) => {
+  const pushTextSegment = (value: string, emphasized = false) => {
     const rawTokens = value.match(TOKEN_PATTERN) ?? [];
-    rawTokens.forEach(pushTextToken);
+    rawTokens.forEach((token) => pushTextToken(token, emphasized));
   };
 
-  const pushActionCue = (text: string) => {
+  const pushCueToken = (text: string) => {
     const cueText = text.trim();
     if (!cueText) {
       pushTextSegment(`//${text}//`);
@@ -77,28 +77,29 @@ export function parseScript(script: string): ScriptDocument {
       kind: "cue",
       sentenceIndex,
       searchableIndex: null,
+      emphasized: false,
     };
     tokens.push(token);
-    actionCues.push({
-      id: actionCues.length,
-      text: cueText,
-      tokenIndex: tokenId,
-      sentenceIndex,
-    });
     tokenId += 1;
   };
 
   let cursor = 0;
-  for (const match of script.matchAll(ACTION_CUE_PATTERN)) {
+  for (const match of script.matchAll(INLINE_MARKUP_PATTERN)) {
     const start = match.index ?? 0;
     pushTextSegment(script.slice(cursor, start));
-    pushActionCue(match[1]);
+    if (match[1] !== undefined) {
+      pushCueToken(match[1]);
+    } else if (match[2]?.trim()) {
+      pushTextSegment(match[2], true);
+    } else {
+      pushTextSegment(match[0]);
+    }
     cursor = start + match[0].length;
   }
   pushTextSegment(script.slice(cursor));
 
   const validSentenceStarts = sentenceStarts.filter((start, index) => index === 0 || start < tokens.length);
-  return { tokens, sentenceStarts: validSentenceStarts, searchableTokens, actionCues };
+  return { tokens, sentenceStarts: validSentenceStarts, searchableTokens };
 }
 
 export function searchableIndexForDisplay(document: ScriptDocument, displayIndex: number): number {
