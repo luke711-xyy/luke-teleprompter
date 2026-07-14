@@ -5,6 +5,8 @@ import App from "./App";
 const speechStartMock = vi.fn();
 const recognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
 let emitFinalRecognition = true;
+const requestFullscreenMock = vi.fn(async () => undefined);
+const orientationLockMock = vi.fn(async () => undefined);
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -25,6 +27,14 @@ describe("microphone test panel", () => {
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
       value: vi.fn(),
+    });
+    Object.defineProperty(document.documentElement, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreenMock,
+    });
+    Object.defineProperty(globalThis.screen, "orientation", {
+      configurable: true,
+      value: { lock: orientationLockMock },
     });
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
@@ -83,6 +93,8 @@ describe("microphone test panel", () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    requestFullscreenMock.mockClear();
+    orientationLockMock.mockClear();
   });
 
   it("opens, starts, shows live transcript, and clears results", async () => {
@@ -145,5 +157,16 @@ describe("microphone test panel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "最后一句" }));
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("接");
+  });
+
+  it("offers a mobile landscape entry point", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "进入横屏" }));
+
+    await waitFor(() => {
+      expect(requestFullscreenMock).toHaveBeenCalledTimes(1);
+      expect(orientationLockMock).toHaveBeenCalledWith("landscape");
+    });
   });
 });

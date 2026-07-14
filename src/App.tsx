@@ -4,6 +4,7 @@ import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
 import { MicrophoneTestModal } from "./components/MicrophoneTestModal";
 import { ModelSetup } from "./components/ModelSetup";
+import { MobileOrientationGate } from "./components/MobileOrientationGate";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
@@ -511,6 +512,8 @@ export default function App() {
           onCancel={() => void cancelModelDownload()}
         />
       )}
+
+      <MobileOrientationGate />
     </div>
   );
 }

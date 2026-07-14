@@ -27,6 +27,7 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  min-height: 100dvh;
   margin: 0;
   overflow: hidden;
   background: var(--background);
@@ -57,6 +58,7 @@ input:focus-visible {
   grid-template-rows: var(--chrome-height) minmax(0, 1fr) 96px 48px;
   width: 100%;
   height: 100%;
+  min-height: 100dvh;
   min-width: 960px;
   min-height: 640px;
   background: #0b0b0c;
@@ -889,6 +891,57 @@ input:focus-visible {
   color: var(--danger) !important;
 }
 
+.mobile-orientation-gate {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: none;
+  padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  place-items: center;
+  background: #0b0b0c;
+}
+
+.mobile-orientation-gate__panel {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  max-width: 320px;
+  color: #f6f4ee;
+  text-align: center;
+}
+
+.mobile-orientation-gate__panel svg {
+  color: var(--accent);
+}
+
+.mobile-orientation-gate__panel h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 680;
+}
+
+.mobile-orientation-gate__panel p {
+  margin: 0 0 4px;
+  color: #aaa8a2;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.mobile-orientation-gate__panel button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 173, 40, 0.48);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #17120a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -950,6 +1003,244 @@ input:focus-visible {
 
   .position-control {
     width: 120px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .editor-modal,
+  .microphone-test-modal {
+    width: min(94vw, 760px);
+    height: min(88dvh, 670px);
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .mobile-orientation-gate {
+    display: grid;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  :root { --chrome-height: 68px; }
+
+  .app-shell {
+    grid-template-rows: var(--chrome-height) minmax(0, 1fr) 72px 28px;
+    width: 100vw;
+    height: 100dvh;
+  }
+
+  .topbar {
+    align-items: center;
+    padding: max(6px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  }
+
+  .app-title {
+    display: none;
+  }
+
+  .topbar__controls {
+    grid-template-columns: minmax(182px, 1.45fr) 46px 76px 46px 46px;
+    gap: 7px;
+  }
+
+  .segmented,
+  .listening-status,
+  .speed-select,
+  .microphone-test-button,
+  .edit-button {
+    height: 44px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .segmented button {
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  .listening-status {
+    gap: 0;
+  }
+
+  .listening-status span,
+  .microphone-test-button span,
+  .edit-button span,
+  .speed-select > span,
+  .speed-select svg {
+    display: none;
+  }
+
+  .speed-select {
+    padding: 0;
+  }
+
+  .speed-select select {
+    min-width: 58px;
+    text-align: center;
+  }
+
+  .microphone-test-button,
+  .edit-button {
+    width: 46px;
+    padding: 0;
+  }
+
+  .focus-band {
+    min-height: 112px;
+  }
+
+  .focus-marker {
+    left: max(16px, env(safe-area-inset-left));
+    width: 5px;
+    height: 42px;
+  }
+
+  .prompt-script {
+    max-width: none;
+    padding: 42dvh max(42px, calc(env(safe-area-inset-right) + 32px)) 48dvh max(56px, calc(env(safe-area-inset-left) + 48px));
+    line-height: 1.36;
+  }
+
+  .bottom-controls {
+    grid-template-columns: 312px minmax(0, 1fr);
+    gap: 10px;
+    padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  }
+
+  .transport-controls {
+    grid-template-columns: 48px 58px 60px 58px 48px;
+    gap: 4px;
+    width: 312px;
+    margin: 0;
+    justify-self: start;
+  }
+
+  .play-button {
+    width: 58px;
+    height: 58px;
+  }
+
+  .transport-button {
+    padding: 0;
+  }
+
+  .transport-button .icon-button__label,
+  .utility-controls .icon-button__label,
+  .font-control span,
+  .position-control__label,
+  .control-divider {
+    display: none;
+  }
+
+  .icon-button--compact {
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .utility-controls {
+    min-width: 0;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .utility-controls .icon-button,
+  .font-control {
+    min-width: 38px;
+  }
+
+  .position-control {
+    width: clamp(92px, 18vw, 132px);
+    gap: 0;
+  }
+
+  .position-control__input-row {
+    grid-template-columns: minmax(60px, 1fr) 28px;
+    gap: 4px;
+  }
+
+  .position-control output {
+    font-size: 10px;
+  }
+
+  .font-control input {
+    inset: -14px -6px;
+    width: calc(100% + 12px);
+  }
+
+  .local-status {
+    padding-bottom: env(safe-area-inset-bottom);
+    font-size: 12px;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  :root { --chrome-height: 58px; }
+
+  .app-shell {
+    grid-template-rows: var(--chrome-height) minmax(0, 1fr) 64px 24px;
+  }
+
+  .topbar__controls {
+    grid-template-columns: minmax(156px, 1fr) 40px 62px 40px 40px;
+    gap: 5px;
+  }
+
+  .segmented,
+  .listening-status,
+  .speed-select,
+  .microphone-test-button,
+  .edit-button {
+    height: 38px;
+  }
+
+  .segmented button {
+    font-size: 12px;
+  }
+
+  .bottom-controls {
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .transport-controls {
+    grid-template-columns: 40px 50px 54px 50px 40px;
+    gap: 3px;
+    width: 270px;
+  }
+
+  .play-button {
+    width: 52px;
+    height: 52px;
+  }
+
+  .utility-controls {
+    gap: 4px;
+  }
+
+  .utility-controls .icon-button,
+  .font-control {
+    min-width: 32px;
+  }
+
+  .position-control {
+    width: 82px;
+  }
+
+  .position-control output {
+    display: none;
+  }
+
+  .position-control__input-row {
+    grid-template-columns: 1fr;
   }
 }
 
