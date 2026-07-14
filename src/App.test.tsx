@@ -119,4 +119,18 @@ describe("microphone test panel", () => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
     });
   });
+
+  it("moves and persists the two-line reading position", async () => {
+    render(<App />);
+
+    const positionSlider = screen.getByRole("slider", { name: "阅读位置" });
+    expect(positionSlider).toHaveValue("50");
+    fireEvent.change(positionSlider, { target: { value: "36" } });
+
+    expect(positionSlider).toHaveValue("36");
+    expect(globalThis.document.querySelector<HTMLElement>(".focus-band")?.style.top).toBe("36%");
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusPosition).toBe(36);
+    });
+  });
 });

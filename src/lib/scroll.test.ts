@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateTwoLineScrollTarget } from "./scroll";
 
-describe("two-line prompt centering", () => {
+describe("two-line prompt placement", () => {
   it("centers the actual current and following visual lines", () => {
     const target = calculateTwoLineScrollTarget({
       currentTop: 720,
@@ -10,6 +10,7 @@ describe("two-line prompt centering", () => {
       nextHeight: 72,
       lineHeight: 96,
       viewportHeight: 600,
+      focusRatio: 0.5,
       maxScroll: 1600,
     });
 
@@ -23,6 +24,7 @@ describe("two-line prompt centering", () => {
       currentHeight: 80,
       lineHeight: 110,
       viewportHeight: 500,
+      focusRatio: 0.5,
       maxScroll: 2000,
     })).toBe(745);
   });
@@ -33,6 +35,7 @@ describe("two-line prompt centering", () => {
       currentHeight: 60,
       lineHeight: 80,
       viewportHeight: 600,
+      focusRatio: 0.5,
       maxScroll: 1200,
     })).toBe(0);
     expect(calculateTwoLineScrollTarget({
@@ -40,7 +43,23 @@ describe("two-line prompt centering", () => {
       currentHeight: 60,
       lineHeight: 80,
       viewportHeight: 600,
+      focusRatio: 0.5,
       maxScroll: 1200,
     })).toBe(1200);
+  });
+
+  it("moves the two-line reading area above or below center", () => {
+    const geometry = {
+      currentTop: 720,
+      currentHeight: 72,
+      nextTop: 816,
+      nextHeight: 72,
+      lineHeight: 96,
+      viewportHeight: 600,
+      maxScroll: 1600,
+    };
+
+    expect(calculateTwoLineScrollTarget({ ...geometry, focusRatio: 0.3 })).toBe(624);
+    expect(calculateTwoLineScrollTarget({ ...geometry, focusRatio: 0.7 })).toBe(384);
   });
 });

@@ -63,6 +63,7 @@ export interface PersistedSettings {
   mode: ScrollMode;
   speed: number;
   fontSize: number;
+  focusPosition: number;
   mirrored: boolean;
   activeTokenIndex: number;
 }

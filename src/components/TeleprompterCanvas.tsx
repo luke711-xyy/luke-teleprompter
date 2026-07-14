@@ -15,13 +15,14 @@ interface TeleprompterCanvasProps {
   document: ScriptDocument;
   activeTokenIndex: number;
   fontSize: number;
+  focusPosition: number;
   mirrored: boolean;
   mode: ScrollMode;
   onManualScroll?: () => void;
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, mirrored, mode, onManualScroll }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, mirrored, mode, onManualScroll }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
     const programmaticScroll = useRef(false);
@@ -51,6 +52,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         nextHeight: nextLineToken?.offsetHeight,
         lineHeight,
         viewportHeight: viewport.clientHeight,
+        focusRatio: focusPosition / 100,
         maxScroll,
       });
 
@@ -106,7 +108,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       findFocusedToken: () => {
         const viewport = viewportRef.current;
         if (!viewport) return activeTokenIndex;
-        const focusY = viewport.getBoundingClientRect().top + viewport.clientHeight * 0.5;
+        const focusY = viewport.getBoundingClientRect().top + viewport.clientHeight * (focusPosition / 100);
         let nearest = activeTokenIndex;
         let nearestDistance = Number.POSITIVE_INFINITY;
         tokenRefs.current.forEach((node, index) => {
@@ -119,11 +121,15 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         });
         return nearest;
       },
-    }), [activeTokenIndex, fontSize]);
+    }), [activeTokenIndex, focusPosition, fontSize]);
 
     useEffect(() => {
       if (mode === "follow") scrollToToken(activeTokenIndex);
     }, [activeTokenIndex, mode]);
+
+    useEffect(() => {
+      scrollToToken(activeTokenIndex);
+    }, [focusPosition]);
 
     useEffect(() => () => {
       if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
@@ -132,7 +138,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     return (
       <main className="reading-stage">
-        <div className="focus-band" aria-hidden="true">
+        <div className="focus-band" style={{ top: `${focusPosition}%` }} aria-hidden="true">
           <span className="focus-marker" />
         </div>
         <div

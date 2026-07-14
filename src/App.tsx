@@ -50,6 +50,7 @@ export default function App() {
   const [mode, setMode] = useState<ScrollMode>(initialSettings.mode);
   const [speed, setSpeed] = useState(initialSettings.speed);
   const [fontSize, setFontSize] = useState(initialSettings.fontSize);
+  const [focusPosition, setFocusPosition] = useState(initialSettings.focusPosition);
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
@@ -106,10 +107,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, focusPosition, mirrored, activeTokenIndex });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, focusPosition, mirrored, activeTokenIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -403,6 +404,7 @@ export default function App() {
         document={document}
         activeTokenIndex={activeTokenIndex}
         fontSize={fontSize}
+        focusPosition={focusPosition}
         mirrored={mirrored}
         mode={mode}
       />
@@ -412,10 +414,12 @@ export default function App() {
         mirrored={mirrored}
         fullscreen={fullscreen}
         fontSize={fontSize}
+        focusPosition={focusPosition}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
         onTogglePlaying={() => setPlaying((value) => !value)}
         onNext={() => moveToToken(nextSentenceToken(document, activeTokenIndex))}
         onFontSizeChange={setFontSize}
+        onFocusPositionChange={setFocusPosition}
         onToggleMirror={() => setMirrored((value) => !value)}
         onToggleFullscreen={() => void handleToggleFullscreen()}
       />

@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   mode: "follow",
   speed: 1,
   fontSize: 68,
+  focusPosition: 50,
   mirrored: false,
   activeTokenIndex: 28,
 };
@@ -18,7 +19,10 @@ export function loadSettings(): PersistedSettings {
     const stored = localStorage.getItem(KEY);
     if (!stored) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(stored) as Partial<PersistedSettings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const focusPosition = typeof parsed.focusPosition === "number"
+      ? Math.min(70, Math.max(30, parsed.focusPosition))
+      : DEFAULT_SETTINGS.focusPosition;
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition };
   } catch {
     return DEFAULT_SETTINGS;
   }

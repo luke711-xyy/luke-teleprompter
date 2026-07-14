@@ -5,12 +5,13 @@ export interface TwoLineScrollGeometry {
   nextHeight?: number;
   lineHeight: number;
   viewportHeight: number;
+  focusRatio: number;
   maxScroll: number;
 }
 
 /**
- * Keeps the visual pair made from the current line and the following line
- * around the exact vertical center of the reading viewport.
+ * Places the visual pair made from the current line and the following line
+ * at the selected vertical focus point in the reading viewport.
  */
 export function calculateTwoLineScrollTarget({
   currentTop,
@@ -19,11 +20,12 @@ export function calculateTwoLineScrollTarget({
   nextHeight,
   lineHeight,
   viewportHeight,
+  focusRatio,
   maxScroll,
 }: TwoLineScrollGeometry): number {
   const followingTop = nextTop ?? currentTop + lineHeight;
   const followingHeight = nextHeight ?? currentHeight;
   const pairCenter = (currentTop + followingTop + followingHeight) / 2;
-  const target = pairCenter - viewportHeight / 2;
+  const target = pairCenter - viewportHeight * focusRatio;
   return Math.min(Math.max(0, target), Math.max(0, maxScroll));
 }

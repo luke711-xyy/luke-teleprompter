@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Maximize,
   Minimize,
+  MoveVertical,
   Pause,
   Play,
   RectangleHorizontal,
@@ -15,10 +16,12 @@ interface BottomControlsProps {
   mirrored: boolean;
   fullscreen: boolean;
   fontSize: number;
+  focusPosition: number;
   onPrevious: () => void;
   onTogglePlaying: () => void;
   onNext: () => void;
   onFontSizeChange: (value: number) => void;
+  onFocusPositionChange: (value: number) => void;
   onToggleMirror: () => void;
   onToggleFullscreen: () => void;
 }
@@ -28,10 +31,12 @@ export function BottomControls({
   mirrored,
   fullscreen,
   fontSize,
+  focusPosition,
   onPrevious,
   onTogglePlaying,
   onNext,
   onFontSizeChange,
+  onFocusPositionChange,
   onToggleMirror,
   onToggleFullscreen,
 }: BottomControlsProps) {
@@ -50,6 +55,26 @@ export function BottomControls({
       </div>
 
       <div className="utility-controls">
+        <label className="position-control" title={`当前阅读位置 ${focusPosition}%`}>
+          <span className="position-control__label">
+            <MoveVertical size={23} strokeWidth={1.7} />
+            阅读位置
+          </span>
+          <span className="position-control__input-row">
+            <input
+              type="range"
+              min="30"
+              max="70"
+              step="1"
+              value={focusPosition}
+              onChange={(event) => onFocusPositionChange(Number(event.target.value))}
+              aria-label="阅读位置"
+              aria-valuetext={`${focusPosition}%，${focusPosition < 45 ? "靠上" : focusPosition > 55 ? "靠下" : "居中"}`}
+            />
+            <output>{focusPosition}%</output>
+          </span>
+        </label>
+        <span className="control-divider" />
         <label className="font-control" title={`当前字号 ${fontSize}px`}>
           <CaseSensitive size={31} strokeWidth={1.65} />
           <span>文字大小</span>
