@@ -170,7 +170,11 @@ export default function App() {
 
   const nearbyPrompt = useMemo(() => {
     const start = Math.max(0, activeTokenIndex - 10);
-    return document.tokens.slice(start, activeTokenIndex + 120).map((token) => token.text).join("");
+    return document.tokens
+      .slice(start, activeTokenIndex + 120)
+      .filter((token) => token.kind !== "cue")
+      .map((token) => token.text)
+      .join("");
   }, [activeTokenIndex, document.tokens]);
 
   useEffect(() => {
@@ -248,7 +252,7 @@ export default function App() {
           },
         });
         browserSpeechRef.current = session;
-        await session.start(script);
+        await session.start(script, { language: "zh-CN" });
       } catch (error) {
         setMicrophoneTestState("error");
         setMicrophoneTestMessage(String(error));

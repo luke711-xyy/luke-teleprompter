@@ -44,6 +44,10 @@ type BrowserSpeechCallbacks = {
   onResult: (result: RecognitionResult) => void;
 };
 
+type BrowserSpeechStartOptions = {
+  language?: "auto" | "zh-CN" | "en-US";
+};
+
 function recognitionConstructor(): SpeechRecognitionConstructor | undefined {
   const speechWindow = window as typeof window & {
     SpeechRecognition?: SpeechRecognitionConstructor;
@@ -73,10 +77,9 @@ function recognitionErrorMessage(error: string): string {
   return `语音识别出错：${error}`;
 }
 
-function preferredLanguage(scriptOrPrompt: string): string {
+export function preferredLanguage(scriptOrPrompt: string): "zh-CN" | "en-US" {
   const cjkCount = (scriptOrPrompt.match(/[\u3400-\u9fff]/g) ?? []).length;
-  const latinCount = (scriptOrPrompt.match(/[A-Za-z]/g) ?? []).length;
-  return cjkCount >= latinCount / 3 ? "zh-CN" : "en-US";
+  return cjkCount > 0 ? "zh-CN" : "en-US";
 }
 
 export function isBrowserSpeechSupported(): boolean {
@@ -135,7 +138,7 @@ export class BrowserSpeechSession {
 
   constructor(private readonly callbacks: BrowserSpeechCallbacks) {}
 
-  async start(scriptOrPrompt = ""): Promise<void> {
+  async start(scriptOrPrompt = "", options: BrowserSpeechStartOptions = {}): Promise<void> {
     const Recognition = recognitionConstructor();
     if (!Recognition || !navigator.mediaDevices?.getUserMedia) {
       throw new Error("当前浏览器不支持语音识别。请使用最新版 Google Chrome 打开此网页。");
@@ -159,7 +162,9 @@ export class BrowserSpeechSession {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.lang = preferredLanguage(scriptOrPrompt);
+      recognition.lang = options.language && options.language !== "auto"
+        ? options.language
+        : preferredLanguage(scriptOrPrompt);
       recognition.onstart = () => {
         this.restarting = false;
         this.callbacks.onState({ state: "listening", message: "Chrome 正在识别中文 / English" });

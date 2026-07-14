@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SpeechActivityGate } from "./browserSpeech";
+import { preferredLanguage, SpeechActivityGate } from "./browserSpeech";
 
 describe("SpeechActivityGate", () => {
   it("keeps speech active through brief volume dips", () => {
@@ -18,5 +18,15 @@ describe("SpeechActivityGate", () => {
     expect(gate.update(0.004, true, 0)).toBe(true);
     expect(gate.update(0.003, false, 500)).toBe(true);
     expect(gate.update(0.003, false, 920)).toBe(false);
+  });
+});
+
+describe("preferredLanguage", () => {
+  it("keeps mixed Chinese and English prompts in Chinese recognition mode", () => {
+    expect(preferredLanguage("今天介绍 this product with a very long English phrase")).toBe("zh-CN");
+  });
+
+  it("uses English only for prompts without Chinese text", () => {
+    expect(preferredLanguage("this is an English only script")).toBe("en-US");
   });
 });

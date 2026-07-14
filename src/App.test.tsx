@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const speechStartMock = vi.fn();
+const speechLanguageMock = vi.fn();
 const recognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
 let emitFinalRecognition = true;
 const requestFullscreenMock = vi.fn(async () => undefined);
@@ -19,6 +20,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 describe("microphone test panel", () => {
   beforeEach(() => {
     speechStartMock.mockReset();
+    speechLanguageMock.mockReset();
     emitFinalRecognition = true;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
@@ -60,6 +62,7 @@ describe("microphone test panel", () => {
 
       start(_track?: MediaStreamTrack) {
         speechStartMock(_track);
+        speechLanguageMock(this.lang);
         this.onstart?.(new Event("start"));
         const interim = Object.assign(
           [{ transcript: recognizedPhrase, confidence: 0.01 }],
@@ -110,6 +113,7 @@ describe("microphone test panel", () => {
     expect(screen.getByText("zh-CN · 91%")).toBeInTheDocument();
     expect(screen.queryByText("zh-CN · 1%")).not.toBeInTheDocument();
     expect(speechStartMock.mock.calls.some(([track]) => track?.kind === "audio")).toBe(true);
+    expect(speechLanguageMock).toHaveBeenCalledWith("zh-CN");
 
     fireEvent.click(screen.getByRole("button", { name: /清空结果/ }));
     expect(screen.queryByText(recognizedPhrase)).not.toBeInTheDocument();
