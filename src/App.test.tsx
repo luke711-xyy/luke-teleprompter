@@ -160,6 +160,44 @@ describe("microphone test panel", () => {
     expect(fontSlider).toHaveAttribute("max", "148");
   });
 
+  it("adjusts and persists dimming strength for non-reading text", async () => {
+    render(<App />);
+
+    const dimSlider = screen.getByRole("slider", { name: "暗显强度" });
+    expect(dimSlider).toHaveValue("100");
+    expect(dimSlider).toHaveAttribute("min", "0");
+    expect(dimSlider).toHaveAttribute("max", "100");
+
+    fireEvent.change(dimSlider, { target: { value: "0" } });
+
+    expect(dimSlider).toHaveValue("0");
+    const prompt = globalThis.document.querySelector<HTMLElement>(".prompt-script");
+    expect(prompt?.style.getPropertyValue("--dimmed-token-color")).toBe("rgb(250, 248, 241)");
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").dimStrength).toBe(0);
+    });
+  });
+
+  it("toggles the pure reading mode chrome", () => {
+    render(<App />);
+
+    const shell = globalThis.document.querySelector<HTMLElement>(".app-shell");
+    expect(shell).not.toHaveClass("is-chrome-hidden");
+    expect(screen.getByRole("button", { name: "进入纯净阅览模式" })).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(globalThis.document.querySelector(".bottom-controls")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "进入纯净阅览模式" }));
+
+    expect(shell).toHaveClass("is-chrome-hidden");
+    expect(screen.getByRole("button", { name: "显示上下边栏" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示上下边栏" }));
+
+    expect(shell).not.toHaveClass("is-chrome-hidden");
+    expect(screen.getByRole("button", { name: "进入纯净阅览模式" })).toBeInTheDocument();
+  });
+
   it("jumps to the first and last sentences from the transport controls", async () => {
     render(<App />);
     await waitFor(() => {

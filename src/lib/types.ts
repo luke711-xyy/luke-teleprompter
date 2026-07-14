@@ -65,6 +65,7 @@ export interface PersistedSettings {
   speed: number;
   fontSize: number;
   focusPosition: number;
+  dimStrength: number;
   mirrored: boolean;
   activeTokenIndex: number;
 }

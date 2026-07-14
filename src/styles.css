@@ -64,6 +64,45 @@ input:focus-visible {
   background: #0b0b0c;
 }
 
+.app-shell.is-chrome-hidden {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-shell.is-chrome-hidden .topbar,
+.app-shell.is-chrome-hidden .bottom-controls,
+.app-shell.is-chrome-hidden .local-status {
+  display: none;
+}
+
+.chrome-toggle-button {
+  position: fixed;
+  z-index: 80;
+  top: max(16px, calc(env(safe-area-inset-top) + 12px));
+  right: max(18px, calc(env(safe-area-inset-right) + 14px));
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(23, 23, 24, 0.72);
+  color: #f7f3ea;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.chrome-toggle-button:hover {
+  border-color: rgba(255, 173, 40, 0.45);
+  background: rgba(32, 30, 27, 0.86);
+  color: var(--accent);
+}
+
+.chrome-toggle-button:active {
+  transform: scale(0.96);
+}
+
 .topbar {
   position: relative;
   z-index: 20;
@@ -349,8 +388,8 @@ input:focus-visible {
 }
 
 .cue-insertion-anchor.is-dimmed-line::before {
-  color: rgba(255, 173, 40, 0.22);
-  opacity: 0.55;
+  color: var(--dimmed-cue-color, rgba(255, 173, 40, 0.22));
+  opacity: var(--dimmed-cue-opacity, 0.55);
   box-shadow: none;
 }
 
@@ -366,7 +405,7 @@ input:focus-visible {
 }
 
 .prompt-token.is-dimmed-line {
-  color: #343435;
+  color: var(--dimmed-token-color, #343435);
   text-shadow: none;
 }
 
@@ -376,14 +415,14 @@ input:focus-visible {
 }
 
 .prompt-token.is-dimmed-line.is-emphasized {
-  color: #5e461f;
+  color: var(--dimmed-emphasized-color, #5e461f);
 }
 
 .bottom-controls {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 428px minmax(0, 1fr);
   align-items: center;
   padding: 0 7.4vw;
   background: #171718;
@@ -409,7 +448,7 @@ input:focus-visible {
 
 .utility-controls {
   justify-content: flex-end;
-  gap: clamp(24px, 2.7vw, 48px);
+  gap: clamp(10px, 1.5vw, 20px);
   transform: translateX(16px);
 }
 
@@ -506,7 +545,7 @@ input:focus-visible {
 .position-control {
   display: grid;
   gap: 7px;
-  width: 142px;
+  width: 132px;
   color: #f1efe9;
 }
 
@@ -1098,7 +1137,7 @@ input:focus-visible {
   }
 
   .position-control {
-    width: 120px;
+    width: 112px;
   }
 }
 
@@ -1196,6 +1235,13 @@ input:focus-visible {
     height: 42px;
   }
 
+  .chrome-toggle-button {
+    top: max(8px, calc(env(safe-area-inset-top) + 6px));
+    right: max(10px, calc(env(safe-area-inset-right) + 8px));
+    width: 42px;
+    height: 42px;
+  }
+
   .prompt-script {
     max-width: none;
     padding: 42dvh max(42px, calc(env(safe-area-inset-right) + 32px)) 48dvh max(56px, calc(env(safe-area-inset-left) + 48px));
@@ -1250,7 +1296,7 @@ input:focus-visible {
   }
 
   .position-control {
-    width: clamp(92px, 18vw, 132px);
+    width: clamp(82px, 14vw, 112px);
     gap: 0;
   }
 
@@ -1328,7 +1374,7 @@ input:focus-visible {
   }
 
   .position-control {
-    width: 82px;
+    width: 64px;
   }
 
   .position-control output {

@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
 import { focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
@@ -17,13 +18,14 @@ interface TeleprompterCanvasProps {
   activeTokenIndex: number;
   fontSize: number;
   focusPosition: number;
+  dimStrength: number;
   mirrored: boolean;
   mode: ScrollMode;
   onManualScroll?: () => void;
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, mirrored, mode, onManualScroll }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, dimStrength, mirrored, mode, onManualScroll }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
@@ -38,6 +40,20 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
       [mirrored],
     );
+
+    const dimStyles = useMemo(() => {
+      const strength = Math.min(100, Math.max(0, dimStrength)) / 100;
+      const mix = (from: [number, number, number], to: [number, number, number]) => {
+        const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * strength);
+        return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+      };
+      return {
+        "--dimmed-token-color": mix([250, 248, 241], [52, 52, 53]),
+        "--dimmed-emphasized-color": mix([255, 209, 95], [94, 70, 31]),
+        "--dimmed-cue-color": mix([255, 173, 40], [100, 75, 34]),
+        "--dimmed-cue-opacity": String(0.9 - (0.35 * strength)),
+      } as CSSProperties;
+    }, [dimStrength]);
 
     const cueTargetTokenId = useCallback((cueTokenIndex: number) => {
       const previousSpokenToken = [...document.tokens.slice(0, cueTokenIndex)]
@@ -248,7 +264,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
             if (!programmaticScroll.current) onManualScroll?.();
           }}
         >
-          <div className={promptClass} ref={scriptRef} style={{ fontSize: `${fontSize}px` }}>
+          <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px` }}>
             {cuePlacements.length > 0 && (
               <aside className="cue-overlay-layer" aria-label="动作提示">
                 {cuePlacements.map((cue) => (

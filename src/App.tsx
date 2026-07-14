@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Eye, EyeOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
@@ -54,10 +55,12 @@ export default function App() {
   const [speed, setSpeed] = useState(initialSettings.speed);
   const [fontSize, setFontSize] = useState(initialSettings.fontSize);
   const [focusPosition, setFocusPosition] = useState(initialSettings.focusPosition);
+  const [dimStrength, setDimStrength] = useState(initialSettings.dimStrength);
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [microphoneTestOpen, setMicrophoneTestOpen] = useState(false);
   const [fileName, setFileName] = useState<string>();
@@ -110,10 +113,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, focusPosition, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, focusPosition, dimStrength, mirrored, activeTokenIndex });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, focusPosition, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, focusPosition, dimStrength, mirrored, activeTokenIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -398,7 +401,17 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${chromeVisible ? "" : "is-chrome-hidden"}`}>
+      <button
+        className="chrome-toggle-button"
+        type="button"
+        onClick={() => setChromeVisible((value) => !value)}
+        aria-label={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
+        title={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
+      >
+        {chromeVisible ? <EyeOff size={24} /> : <Eye size={24} />}
+      </button>
+
       <TopBar
         mode={mode}
         speed={speed}
@@ -416,6 +429,7 @@ export default function App() {
         activeTokenIndex={activeTokenIndex}
         fontSize={fontSize}
         focusPosition={focusPosition}
+        dimStrength={dimStrength}
         mirrored={mirrored}
         mode={mode}
       />
@@ -426,6 +440,7 @@ export default function App() {
         fullscreen={fullscreen}
         fontSize={fontSize}
         focusPosition={focusPosition}
+        dimStrength={dimStrength}
         onFirst={() => moveToToken(firstSentenceToken(document))}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
         onTogglePlaying={() => setPlaying((value) => !value)}
@@ -433,6 +448,7 @@ export default function App() {
         onLast={() => moveToToken(lastSentenceToken(document))}
         onFontSizeChange={setFontSize}
         onFocusPositionChange={setFocusPosition}
+        onDimStrengthChange={setDimStrength}
         onToggleMirror={() => setMirrored((value) => !value)}
         onToggleFullscreen={() => void handleToggleFullscreen()}
       />
