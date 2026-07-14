@@ -332,13 +332,14 @@ input:focus-visible {
 .cue-insertion-anchor::before {
   position: absolute;
   left: 0;
-  bottom: 0.72em;
-  content: "⌃";
-  font-size: 0.28em;
-  font-weight: 800;
-  line-height: 1;
+  bottom: 0.1em;
+  width: 0.06em;
+  height: 0.42em;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
   opacity: 0.9;
-  text-shadow: 0 0 10px rgba(255, 173, 40, 0.18);
+  box-shadow: 0 0 10px rgba(255, 173, 40, 0.18);
   transform: translateX(-50%);
 }
 
@@ -350,7 +351,7 @@ input:focus-visible {
 .cue-insertion-anchor.is-dimmed-line::before {
   color: rgba(255, 173, 40, 0.22);
   opacity: 0.55;
-  text-shadow: none;
+  box-shadow: none;
 }
 
 .token-latin {

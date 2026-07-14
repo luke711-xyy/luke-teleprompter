@@ -56,18 +56,8 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       if (!targetNode) return 0;
 
       const lineHeight = fontSize * 1.42;
-      const tolerance = Math.max(2, lineHeight * 0.18);
       const currentTop = targetNode.offsetTop;
-      const previousLineTop = [...tokenRefs.current.values()]
-        .map((node) => node.offsetTop)
-        .filter((top) => top < currentTop - tolerance)
-        .sort((left, right) => right - left)[0];
-
-      if (previousLineTop !== undefined) {
-        return (previousLineTop + currentTop) / 2;
-      }
-
-      return Math.max(0, currentTop - lineHeight * 0.26);
+      return Math.max(0, currentTop + lineHeight * 0.03);
     }, [fontSize]);
 
     const updateFocusedLineTokens = useCallback(() => {
