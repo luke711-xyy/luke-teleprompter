@@ -337,17 +337,14 @@ input:focus-visible {
   letter-spacing: 0.005em;
 }
 
-.prompt-token.is-past {
-  color: #343435;
-}
-
-.prompt-token.is-current {
+.prompt-token.is-focused-line {
   color: #faf8f1;
   text-shadow: 0 1px 18px rgba(255, 255, 255, 0.035);
 }
 
-.prompt-token.is-future {
-  color: #f0eee8;
+.prompt-token.is-dimmed-line {
+  color: #343435;
+  text-shadow: none;
 }
 
 .bottom-controls {

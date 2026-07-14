@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { focusedTwoLineTokenIds } from "./visualLines";
+
+describe("focusedTwoLineTokenIds", () => {
+  it("selects the active visual line and the following visual line", () => {
+    expect(focusedTwoLineTokenIds([
+      { id: 1, top: 100 },
+      { id: 2, top: 100 },
+      { id: 3, top: 172 },
+      { id: 4, top: 172 },
+      { id: 5, top: 244 },
+    ], 2, 72)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("dims both earlier and later lines by selecting only the current pair", () => {
+    expect(focusedTwoLineTokenIds([
+      { id: 1, top: 80 },
+      { id: 2, top: 152 },
+      { id: 3, top: 224 },
+      { id: 4, top: 296 },
+      { id: 5, top: 368 },
+    ], 3, 72)).toEqual([3, 4]);
+  });
+
+  it("falls back to the active line at the end of the script", () => {
+    expect(focusedTwoLineTokenIds([
+      { id: 8, top: 400 },
+      { id: 9, top: 400 },
+    ], 8, 72)).toEqual([8, 9]);
+  });
+});

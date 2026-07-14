@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
+import { focusedTwoLineTokenIds } from "../lib/visualLines";
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -31,6 +32,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     const scrollFrameRef = useRef<number | null>(null);
     const scrollUnlockTimerRef = useRef<number | null>(null);
     const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; isActive: boolean }>>([]);
+    const [focusedLineTokenIds, setFocusedLineTokenIds] = useState<Set<number>>(() => new Set([activeTokenIndex]));
     const activeSentence = document.tokens[activeTokenIndex]?.sentenceIndex ?? 0;
 
     const promptClass = useMemo(
@@ -54,6 +56,15 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         };
       }));
     }, [activeSentence, document.actionCues]);
+
+    const updateFocusedLineTokens = useCallback(() => {
+      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * 1.42);
+      setFocusedLineTokenIds((current) => {
+        if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
+        return new Set(nextIds);
+      });
+    }, [activeTokenIndex, fontSize]);
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
@@ -157,27 +168,35 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     }, []);
 
     useLayoutEffect(() => {
-      const frame = window.requestAnimationFrame(updateCuePlacements);
+      const frame = window.requestAnimationFrame(() => {
+        updateCuePlacements();
+        updateFocusedLineTokens();
+      });
       return () => window.cancelAnimationFrame(frame);
-    }, [fontSize, updateCuePlacements]);
+    }, [fontSize, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
-      if (!scriptNode || !document.actionCues.length) return;
+      if (!scriptNode) return;
+
+      const updateMeasurements = () => {
+        updateCuePlacements();
+        updateFocusedLineTokens();
+      };
 
       if (typeof ResizeObserver === "undefined") {
-        window.addEventListener("resize", updateCuePlacements);
-        return () => window.removeEventListener("resize", updateCuePlacements);
+        window.addEventListener("resize", updateMeasurements);
+        return () => window.removeEventListener("resize", updateMeasurements);
       }
 
-      const observer = new ResizeObserver(updateCuePlacements);
+      const observer = new ResizeObserver(updateMeasurements);
       observer.observe(scriptNode);
-      window.addEventListener("resize", updateCuePlacements);
+      window.addEventListener("resize", updateMeasurements);
       return () => {
         observer.disconnect();
-        window.removeEventListener("resize", updateCuePlacements);
+        window.removeEventListener("resize", updateMeasurements);
       };
-    }, [document.actionCues.length, updateCuePlacements]);
+    }, [updateCuePlacements, updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">
@@ -221,11 +240,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
                   />
                 );
               }
-              const sentenceClass = token.sentenceIndex < activeSentence
-                ? "is-past"
-                : token.sentenceIndex === activeSentence
-                  ? "is-current"
-                  : "is-future";
+              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
               return (
                 <span
                   key={token.id}
@@ -233,7 +248,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
                     if (node) tokenRefs.current.set(token.id, node);
                     else tokenRefs.current.delete(token.id);
                   }}
-                  className={`prompt-token token-${token.kind} ${sentenceClass} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
+                  className={`prompt-token token-${token.kind} ${focusClass} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
                   data-token-index={token.id}
                 >
                   {token.text}
