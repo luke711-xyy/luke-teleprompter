@@ -40,15 +40,15 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     );
 
     const cueTargetTokenId = useCallback((cueTokenIndex: number) => {
-      const nextSpokenToken = document.tokens
-        .slice(cueTokenIndex + 1)
-        .find((token) => token.normalized);
-      if (nextSpokenToken) return nextSpokenToken.id;
-
       const previousSpokenToken = [...document.tokens.slice(0, cueTokenIndex)]
         .reverse()
         .find((token) => token.normalized);
-      return previousSpokenToken?.id ?? activeTokenIndex;
+      if (previousSpokenToken) return previousSpokenToken.id;
+
+      const nextSpokenToken = document.tokens
+        .slice(cueTokenIndex + 1)
+        .find((token) => token.normalized);
+      return nextSpokenToken?.id ?? activeTokenIndex;
     }, [activeTokenIndex, document.tokens]);
 
     const cueVerticalCenter = useCallback((targetTokenId: number) => {
