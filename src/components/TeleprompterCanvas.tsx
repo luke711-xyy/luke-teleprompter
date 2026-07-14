@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
-import { focusedTwoLineTokenIds } from "../lib/visualLines";
+import { focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -68,12 +68,14 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
-      const token = tokenRefs.current.get(tokenIndex);
+      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, fontSize * 1.42);
+      const token = tokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
       if (!viewport || !token) return;
 
       const lineHeight = fontSize * 1.42;
       const nextLineToken = [...tokenRefs.current.entries()]
-        .filter(([index, node]) => index > tokenIndex && node.offsetTop >= token.offsetTop + lineHeight * 0.5)
+        .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + lineHeight * 0.5)
         .sort(([left], [right]) => left - right)[0]?.[1];
       const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
       const target = calculateTwoLineScrollTarget({
