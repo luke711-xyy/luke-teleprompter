@@ -27,19 +27,32 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
-    const visibleTokenRefs = useRef(new Map<number, HTMLSpanElement>());
+    const cueAnchorRefs = useRef(new Map<number, HTMLSpanElement>());
     const programmaticScroll = useRef(false);
     const scrollFrameRef = useRef<number | null>(null);
     const scrollUnlockTimerRef = useRef<number | null>(null);
     const [focusedLineTokenIds, setFocusedLineTokenIds] = useState<Set<number>>(() => new Set([activeTokenIndex]));
+    const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; left: number; isActive: boolean }>>([]);
 
     const promptClass = useMemo(
       () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
       [mirrored],
     );
 
+    const cueTargetTokenId = useCallback((cueTokenIndex: number) => {
+      const nextSpokenToken = document.tokens
+        .slice(cueTokenIndex + 1)
+        .find((token) => token.normalized);
+      if (nextSpokenToken) return nextSpokenToken.id;
+
+      const previousSpokenToken = [...document.tokens.slice(0, cueTokenIndex)]
+        .reverse()
+        .find((token) => token.normalized);
+      return previousSpokenToken?.id ?? activeTokenIndex;
+    }, [activeTokenIndex, document.tokens]);
+
     const updateFocusedLineTokens = useCallback(() => {
-      const measurements = [...visibleTokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * 1.42);
       setFocusedLineTokenIds((current) => {
         if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
@@ -47,15 +60,49 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       });
     }, [activeTokenIndex, fontSize]);
 
+    const updateCuePlacements = useCallback((focusedIds = focusedLineTokenIds) => {
+      const lineHeight = fontSize * 1.42;
+      const cues = document.tokens.filter((token) => token.kind === "cue");
+      if (!cues.length) {
+        setCuePlacements((current) => current.length ? [] : current);
+        return;
+      }
+
+      const nextPlacements = cues.map((cue) => {
+        const anchor = cueAnchorRefs.current.get(cue.id);
+        const targetTokenId = cueTargetTokenId(cue.id);
+        return {
+          id: cue.id,
+          text: cue.text,
+          top: Math.max(0, (anchor?.offsetTop ?? 0) - lineHeight * 0.08),
+          left: anchor?.offsetLeft ?? 0,
+          isActive: focusedIds.has(targetTokenId),
+        };
+      });
+
+      setCuePlacements((current) => {
+        const unchanged = current.length === nextPlacements.length
+          && current.every((placement, index) => {
+            const next = nextPlacements[index];
+            return placement.id === next.id
+              && placement.text === next.text
+              && placement.top === next.top
+              && placement.left === next.left
+              && placement.isActive === next.isActive;
+          });
+        return unchanged ? current : nextPlacements;
+      });
+    }, [cueTargetTokenId, document.tokens, focusedLineTokenIds, fontSize]);
+
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
-      const measurements = [...visibleTokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, fontSize * 1.42);
-      const token = visibleTokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
+      const token = tokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
       if (!viewport || !token) return;
 
       const lineHeight = fontSize * 1.42;
-      const nextLineToken = [...visibleTokenRefs.current.entries()]
+      const nextLineToken = [...tokenRefs.current.entries()]
         .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + lineHeight * 0.5)
         .sort(([left], [right]) => left - right)[0]?.[1];
       const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
@@ -151,27 +198,35 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     }, []);
 
     useLayoutEffect(() => {
-      const frame = window.requestAnimationFrame(updateFocusedLineTokens);
+      const frame = window.requestAnimationFrame(() => {
+        updateFocusedLineTokens();
+        updateCuePlacements();
+      });
       return () => window.cancelAnimationFrame(frame);
-    }, [fontSize, updateFocusedLineTokens]);
+    }, [fontSize, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
       if (!scriptNode) return;
 
+      const updateMeasurements = () => {
+        updateFocusedLineTokens();
+        updateCuePlacements();
+      };
+
       if (typeof ResizeObserver === "undefined") {
-        window.addEventListener("resize", updateFocusedLineTokens);
-        return () => window.removeEventListener("resize", updateFocusedLineTokens);
+        window.addEventListener("resize", updateMeasurements);
+        return () => window.removeEventListener("resize", updateMeasurements);
       }
 
-      const observer = new ResizeObserver(updateFocusedLineTokens);
+      const observer = new ResizeObserver(updateMeasurements);
       observer.observe(scriptNode);
-      window.addEventListener("resize", updateFocusedLineTokens);
+      window.addEventListener("resize", updateMeasurements);
       return () => {
         observer.disconnect();
-        window.removeEventListener("resize", updateFocusedLineTokens);
+        window.removeEventListener("resize", updateMeasurements);
       };
-    }, [updateFocusedLineTokens]);
+    }, [updateCuePlacements, updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">
@@ -186,35 +241,44 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           }}
         >
           <div className={promptClass} ref={scriptRef} style={{ fontSize: `${fontSize}px` }}>
+            {cuePlacements.length > 0 && (
+              <aside className="cue-overlay-layer" aria-label="动作提示">
+                {cuePlacements.map((cue) => (
+                  <div
+                    key={cue.id}
+                    className={`cue-floating-card ${cue.isActive ? "is-active" : ""}`}
+                    style={{ top: `${cue.top}px`, left: `${cue.left}px` }}
+                  >
+                    {cue.text}
+                  </div>
+                ))}
+              </aside>
+            )}
             {document.tokens.map((token) => {
               if (token.kind === "linebreak") return <br key={token.id} />;
               if (token.kind === "space") return <span key={token.id}>{token.text}</span>;
-              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
               if (token.kind === "cue") {
+                const targetTokenId = cueTargetTokenId(token.id);
+                const cueFocusClass = focusedLineTokenIds.has(targetTokenId) ? "is-focused-line" : "is-dimmed-line";
                 return (
                   <span
                     key={token.id}
                     ref={(node) => {
-                      if (node) visibleTokenRefs.current.set(token.id, node);
-                      else visibleTokenRefs.current.delete(token.id);
+                      if (node) cueAnchorRefs.current.set(token.id, node);
+                      else cueAnchorRefs.current.delete(token.id);
                     }}
-                    className={`inline-cue-token ${focusClass}`}
-                  >
-                    {token.text}
-                  </span>
+                    className={`cue-insertion-anchor ${cueFocusClass}`}
+                    aria-label={`动作提示：${token.text}`}
+                  />
                 );
               }
+              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
               return (
                 <span
                   key={token.id}
                   ref={(node) => {
-                    if (node) {
-                      tokenRefs.current.set(token.id, node);
-                      visibleTokenRefs.current.set(token.id, node);
-                    } else {
-                      tokenRefs.current.delete(token.id);
-                      visibleTokenRefs.current.delete(token.id);
-                    }
+                    if (node) tokenRefs.current.set(token.id, node);
+                    else tokenRefs.current.delete(token.id);
                   }}
                   className={`prompt-token token-${token.kind} ${focusClass} ${token.emphasized ? "is-emphasized" : ""} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
                   data-token-index={token.id}

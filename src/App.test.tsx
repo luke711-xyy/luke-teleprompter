@@ -174,7 +174,7 @@ describe("microphone test panel", () => {
     });
   });
 
-  it("renders inline action cues and emphasized text after editing", async () => {
+  it("renders zero-width action cue markers, floating cue cards, and emphasized text after editing", async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: /编辑文稿/ }));
@@ -187,8 +187,10 @@ describe("microphone test panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "应用文稿" }));
 
     await waitFor(() => {
-      expect(globalThis.document.querySelector(".inline-cue-token")?.textContent).toBe("动作 1");
+      expect(globalThis.document.querySelector(".cue-floating-card")?.textContent).toBe("动作 1");
     });
+    expect(globalThis.document.querySelector(".cue-insertion-anchor")).toHaveAttribute("aria-label", "动作提示：动作 1");
+    expect(globalThis.document.querySelector(".cue-insertion-anchor")?.textContent).toBe("");
     expect([...globalThis.document.querySelectorAll(".prompt-token.is-emphasized")].map((node) => node.textContent).join("")).toBe("产品价值");
     expect(screen.queryByText("//动作 1//")).not.toBeInTheDocument();
     expect(screen.queryByText("**产品价值**")).not.toBeInTheDocument();

@@ -60,7 +60,7 @@ export function EditorModal({
         </header>
 
         <div className="editor-syntax-hint" aria-label="文稿格式提示">
-          <span><code>//动作提示//</code> 插入内联提示框</span>
+          <span><code>//动作提示//</code> 插入零宽标记，并在行间显示提示框</span>
           <span><code>**重点词**</code> 显示黄色，仍参与跟读识别</span>
         </div>
 

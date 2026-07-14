@@ -286,24 +286,71 @@ input:focus-visible {
   transition: color 280ms ease, opacity 280ms ease, text-shadow 280ms ease;
 }
 
-.inline-cue-token {
+.cue-overlay-layer {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cue-floating-card {
+  position: absolute;
   display: inline-flex;
-  max-width: min(18em, 42vw);
-  margin: 0 0.26em;
-  padding: 0.16em 0.46em;
+  max-width: min(19em, 44vw);
+  padding: 0.13em 0.46em;
   align-items: center;
-  border: 1px solid rgba(255, 173, 40, 0.32);
-  border-radius: 0.42em;
-  background: rgba(255, 173, 40, 0.11);
-  color: #d9d2c2;
-  font-size: 0.38em;
+  border: 1px solid rgba(255, 173, 40, 0.14);
+  border-radius: 0.38em;
+  background: rgba(255, 173, 40, 0.05);
+  color: #544634;
+  font-size: 0.34em;
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
-  vertical-align: middle;
+  text-align: center;
   white-space: normal;
+  transform: translate(-50%, -100%);
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.cue-floating-card.is-active {
+  border-color: rgba(255, 173, 40, 0.52);
+  background: rgba(255, 173, 40, 0.14);
+  color: #fff0c7;
+}
+
+.cue-insertion-anchor {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  vertical-align: baseline;
+}
+
+.cue-insertion-anchor::before {
+  position: absolute;
+  left: 0;
+  bottom: 0.72em;
+  content: "⌃";
+  font-size: 0.28em;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.9;
+  text-shadow: 0 0 10px rgba(255, 173, 40, 0.18);
+  transform: translateX(-50%);
+}
+
+.cue-insertion-anchor.is-focused-line::before {
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.cue-insertion-anchor.is-dimmed-line::before {
+  color: rgba(255, 173, 40, 0.22);
+  opacity: 0.55;
+  text-shadow: none;
 }
 
 .token-latin {
@@ -329,18 +376,6 @@ input:focus-visible {
 
 .prompt-token.is-dimmed-line.is-emphasized {
   color: #5e461f;
-}
-
-.inline-cue-token.is-dimmed-line {
-  border-color: rgba(255, 173, 40, 0.1);
-  background: rgba(255, 173, 40, 0.04);
-  color: #40372a;
-}
-
-.inline-cue-token.is-focused-line {
-  border-color: rgba(255, 173, 40, 0.52);
-  background: rgba(255, 173, 40, 0.15);
-  color: #fff0c7;
 }
 
 .bottom-controls {
