@@ -51,6 +51,25 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       return previousSpokenToken?.id ?? activeTokenIndex;
     }, [activeTokenIndex, document.tokens]);
 
+    const cueVerticalCenter = useCallback((targetTokenId: number) => {
+      const targetNode = tokenRefs.current.get(targetTokenId);
+      if (!targetNode) return 0;
+
+      const lineHeight = fontSize * 1.42;
+      const tolerance = Math.max(2, lineHeight * 0.18);
+      const currentTop = targetNode.offsetTop;
+      const previousLineTop = [...tokenRefs.current.values()]
+        .map((node) => node.offsetTop)
+        .filter((top) => top < currentTop - tolerance)
+        .sort((left, right) => right - left)[0];
+
+      if (previousLineTop !== undefined) {
+        return (previousLineTop + currentTop) / 2;
+      }
+
+      return Math.max(0, currentTop - lineHeight * 0.26);
+    }, [fontSize]);
+
     const updateFocusedLineTokens = useCallback(() => {
       const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * 1.42);
@@ -61,7 +80,6 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     }, [activeTokenIndex, fontSize]);
 
     const updateCuePlacements = useCallback((focusedIds = focusedLineTokenIds) => {
-      const lineHeight = fontSize * 1.42;
       const cues = document.tokens.filter((token) => token.kind === "cue");
       if (!cues.length) {
         setCuePlacements((current) => current.length ? [] : current);
@@ -74,7 +92,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         return {
           id: cue.id,
           text: cue.text,
-          top: Math.max(0, (anchor?.offsetTop ?? 0) - lineHeight * 0.08),
+          top: cueVerticalCenter(targetTokenId),
           left: anchor?.offsetLeft ?? 0,
           isActive: focusedIds.has(targetTokenId),
         };
@@ -92,7 +110,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           });
         return unchanged ? current : nextPlacements;
       });
-    }, [cueTargetTokenId, document.tokens, focusedLineTokenIds, fontSize]);
+    }, [cueTargetTokenId, cueVerticalCenter, document.tokens, focusedLineTokenIds, fontSize]);
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;

@@ -297,20 +297,20 @@ input:focus-visible {
   position: absolute;
   display: inline-flex;
   max-width: min(19em, 44vw);
-  padding: 0.13em 0.46em;
+  padding: 0.08em 0.4em;
   align-items: center;
   border: 1px solid rgba(255, 173, 40, 0.14);
   border-radius: 0.38em;
   background: rgba(255, 173, 40, 0.05);
   color: #544634;
-  font-size: 0.34em;
+  font-size: 0.24em;
   font-weight: 650;
-  line-height: 1.2;
+  line-height: 1.16;
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
   text-align: center;
   white-space: normal;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -50%);
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
