@@ -136,9 +136,6 @@ input:focus-visible {
 }
 
 .is-liquid-glass-ready .topbar.liquid-glass,
-.is-liquid-glass-ready .bottom-controls.liquid-glass,
-.is-liquid-glass-ready .fullscreen-floating-button.liquid-glass,
-.is-liquid-glass-ready .settings-drawer.liquid-glass,
 .is-liquid-glass-ready .chrome-actions.liquid-glass {
   background: transparent;
   box-shadow: none;
@@ -146,10 +143,7 @@ input:focus-visible {
   backdrop-filter: none;
 }
 
-.is-liquid-glass-ready .topbar.liquid-glass,
-.is-liquid-glass-ready .bottom-controls.liquid-glass,
-.is-liquid-glass-ready .fullscreen-floating-button.liquid-glass,
-.is-liquid-glass-ready .settings-drawer.liquid-glass {
+.is-liquid-glass-ready .topbar.liquid-glass {
   border-color: rgba(255, 255, 255, 0.25);
 }
 

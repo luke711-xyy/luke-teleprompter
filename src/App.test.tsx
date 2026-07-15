@@ -296,12 +296,12 @@ describe("microphone test panel", () => {
     render(<App />);
 
     expect(globalThis.document.querySelector(".app-shell")).toHaveClass("liquid-glass-root");
-    expect(globalThis.document.querySelector(".reading-stage")).toHaveAttribute("data-dynamic");
+    expect(globalThis.document.querySelector(".reading-stage")).not.toHaveAttribute("data-dynamic");
     expect(globalThis.document.querySelector(".topbar")).toHaveClass("liquid-glass");
     expect(globalThis.document.querySelector(".chrome-actions")).toHaveClass("liquid-glass");
     expect(screen.getByRole("button", { name: "全屏" })).toHaveClass("fullscreen-floating-button");
-    expect(screen.getByRole("button", { name: "全屏" })).toHaveClass("liquid-glass");
-    expect(globalThis.document.querySelector(".bottom-controls")).toHaveClass("liquid-glass");
+    expect(screen.getByRole("button", { name: "全屏" })).not.toHaveClass("liquid-glass");
+    expect(globalThis.document.querySelector(".bottom-controls")).not.toHaveClass("liquid-glass");
     const editButton = screen.getByRole("button", { name: "编辑文稿" });
     expect(editButton).toHaveClass("edit-button");
     expect(editButton).toHaveClass("chrome-toggle-button");

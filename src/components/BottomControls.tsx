@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { IconButton } from "./IconButton";
 interface BottomControlsProps {
-  className?: string;
   playing: boolean;
   onFirst: () => void;
   onPrevious: () => void;
@@ -18,7 +17,6 @@ interface BottomControlsProps {
 }
 
 export function BottomControls({
-  className,
   playing,
   onFirst,
   onPrevious,
@@ -27,10 +25,7 @@ export function BottomControls({
   onLast,
 }: BottomControlsProps) {
   return (
-    <footer
-      className={`bottom-controls ${className ?? ""}`.trim()}
-      data-config='{"blurAmount":0.18,"refraction":0.32,"chromAberration":0.025,"edgeHighlight":0.2,"specular":0.32,"fresnel":0.86,"cornerRadius":34,"zRadius":24,"opacity":0.94,"shadowOpacity":0.24,"shadowSpread":12}'
-    >
+    <footer className="bottom-controls">
       <div className="transport-controls">
         <IconButton
           icon={<ChevronsLeft size={20} />}

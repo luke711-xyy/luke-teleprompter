@@ -492,9 +492,8 @@ export default function App() {
       </div>
 
       <button
-        className="fullscreen-floating-button liquid-glass liquid-glass--button"
+        className="fullscreen-floating-button"
         type="button"
-        data-config='{"blurAmount":0.18,"refraction":0.34,"chromAberration":0.026,"edgeHighlight":0.22,"specular":0.34,"fresnel":0.9,"cornerRadius":34,"zRadius":24,"opacity":0.95,"shadowOpacity":0.26,"shadowSpread":12,"button":true}'
         onClick={() => void handleToggleFullscreen()}
         aria-label={fullscreen ? "退出全屏" : "全屏"}
         title={fullscreen ? "退出全屏" : "全屏"}
@@ -526,7 +525,6 @@ export default function App() {
       />
 
       <BottomControls
-        className="liquid-glass liquid-glass--transport"
         playing={playing}
         onFirst={() => moveToToken(firstSentenceToken(document))}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
