@@ -81,6 +81,8 @@ export default function App() {
   const [microphoneTestLevel, setMicrophoneTestLevel] = useState<RecognitionLevel>({ level: 0, isSpeech: false });
   const [microphoneTestResults, setMicrophoneTestResults] = useState<RecognitionResult[]>([]);
   const canvasRef = useRef<TeleprompterCanvasHandle>(null);
+  const activeTokenIndexRef = useRef(activeTokenIndex);
+  const manualResnapTimerRef = useRef<number | null>(null);
   const currentSearchableRef = useRef(0);
   const steadyPositionRef = useRef(0);
   const hysteresisRef = useRef(new MatchHysteresis());
@@ -90,6 +92,7 @@ export default function App() {
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
   const document = useMemo(() => parseScript(script), [script]);
+  activeTokenIndexRef.current = activeTokenIndex;
 
   followResultHandlerRef.current = (result) => {
     if (!playing || !microphoneEnabled || mode !== "follow") return;
@@ -371,14 +374,32 @@ export default function App() {
     return () => window.clearInterval(interval);
   }, [chineseCharactersPerLine, fontSize, lineHeight, mode, playing, speed]);
 
+  const clearManualResnap = useCallback(() => {
+    if (manualResnapTimerRef.current !== null) {
+      window.clearTimeout(manualResnapTimerRef.current);
+      manualResnapTimerRef.current = null;
+    }
+  }, []);
+
   const moveToToken = useCallback((index: number) => {
+    clearManualResnap();
     const safeIndex = Math.min(Math.max(0, index), Math.max(0, document.tokens.length - 1));
     hysteresisRef.current.reset();
     recoveryMatchGateRef.current.reset();
     localMissStartedAtRef.current = null;
     setActiveTokenIndex(safeIndex);
     canvasRef.current?.scrollToToken(safeIndex);
-  }, [document.tokens.length]);
+  }, [clearManualResnap, document.tokens.length]);
+
+  const handleManualScroll = useCallback(() => {
+    clearManualResnap();
+    manualResnapTimerRef.current = window.setTimeout(() => {
+      manualResnapTimerRef.current = null;
+      canvasRef.current?.scrollToToken(activeTokenIndexRef.current);
+    }, 750);
+  }, [clearManualResnap]);
+
+  useEffect(() => clearManualResnap, [clearManualResnap]);
 
   const handleModeChange = (nextMode: ScrollMode) => {
     const focused = canvasRef.current?.findFocusedToken();
@@ -516,6 +537,8 @@ export default function App() {
         mirrored={mirrored}
         mode={mode}
         onChineseCharactersPerLineChange={handleChineseCharactersPerLineChange}
+        onManualScroll={handleManualScroll}
+        onTokenClick={moveToToken}
       />
 
       <BottomControls

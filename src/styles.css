@@ -380,6 +380,7 @@ input:focus-visible {
 }
 
 .prompt-token {
+  cursor: pointer;
   transition: color 280ms ease, opacity 280ms ease, text-shadow 280ms ease;
 }
 

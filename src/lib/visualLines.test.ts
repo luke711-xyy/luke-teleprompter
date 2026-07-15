@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { focusedTwoLineTokenIds, leadingTwoLineTokenId } from "./visualLines";
+import { firstTokenOnVisualLine, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "./visualLines";
 
 describe("focusedTwoLineTokenIds", () => {
   it("selects the active visual line and the following visual line", () => {
@@ -42,5 +42,18 @@ describe("focusedTwoLineTokenIds", () => {
 
     expect(focusedTwoLineTokenIds(measurements, 2, 72)).toEqual([4, 5, 6]);
     expect(leadingTwoLineTokenId(measurements, 2, 72)).toBe(4);
+  });
+
+  it("anchors a clicked token to the start of its own visual line", () => {
+    const measurements = [
+      { id: 1, top: 100 },
+      { id: 2, top: 100 },
+      { id: 3, top: 100 },
+      { id: 4, top: 172 },
+      { id: 5, top: 172 },
+    ];
+
+    expect(firstTokenOnVisualLine(measurements, 3, 72)).toBe(1);
+    expect(firstTokenOnVisualLine(measurements, 5, 72)).toBe(4);
   });
 });

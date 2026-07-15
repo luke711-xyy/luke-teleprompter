@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import type { CSSProperties } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
-import { focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
+import { firstTokenOnVisualLine, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -25,10 +25,11 @@ interface TeleprompterCanvasProps {
   mode: ScrollMode;
   onChineseCharactersPerLineChange?: (value: number) => void;
   onManualScroll?: () => void;
+  onTokenClick?: (tokenIndex: number) => void;
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
@@ -96,6 +97,11 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         return new Set(nextIds);
       });
     }, [activeTokenIndex, fontSize, lineHeight]);
+
+    const selectTokenLine = useCallback((tokenIndex: number) => {
+      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      onTokenClick?.(firstTokenOnVisualLine(measurements, tokenIndex, fontSize * lineHeight));
+    }, [fontSize, lineHeight, onTokenClick]);
 
     const updateCuePlacements = useCallback((focusedIds = focusedLineTokenIds) => {
       const cues = document.tokens.filter((token) => token.kind === "cue");
@@ -320,6 +326,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
                   }}
                   className={`prompt-token token-${token.kind} ${focusClass} ${token.emphasized ? "is-emphasized" : ""} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
                   data-token-index={token.id}
+                  onClick={() => selectTokenLine(token.id)}
                 >
                   {token.text}
                 </span>

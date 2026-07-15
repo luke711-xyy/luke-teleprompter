@@ -324,6 +324,15 @@ describe("microphone test panel", () => {
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("接");
   });
 
+  it("makes a clicked script line the current reading line", () => {
+    render(<App />);
+
+    const tokens = [...globalThis.document.querySelectorAll<HTMLElement>(".prompt-token[data-token-index]")];
+    fireEvent.click(tokens.at(-1)!);
+
+    expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("在");
+  });
+
   it("offers a mobile landscape entry point", async () => {
     render(<App />);
 

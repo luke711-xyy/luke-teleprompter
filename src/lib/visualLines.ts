@@ -28,6 +28,17 @@ function lineTokenIds(measurements: TokenLineMeasurement[], top: number, toleran
     .map((measurement) => measurement.id);
 }
 
+export function firstTokenOnVisualLine(
+  measurements: TokenLineMeasurement[],
+  tokenIndex: number,
+  lineHeight: number,
+): number {
+  const token = measurements.find((measurement) => measurement.id === tokenIndex);
+  if (!token) return tokenIndex;
+  const tolerance = Math.max(2, lineHeight * 0.18);
+  return lineTokenIds(measurements, token.top, tolerance)[0] ?? tokenIndex;
+}
+
 function leadingLineTop(
   measurements: TokenLineMeasurement[],
   activeTokenIndex: number,
