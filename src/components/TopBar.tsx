@@ -1,42 +1,34 @@
-import { ChevronDown, Mic, Pencil, Radio, Shuffle } from "lucide-react";
-import type { ModelState, RecognitionState, ScrollMode } from "../lib/types";
+import { Mic, MicOff, Pencil, Radio, Shuffle } from "lucide-react";
+import type { ScrollMode } from "../lib/types";
 
 interface TopBarProps {
   mode: ScrollMode;
   speed: number;
-  modelState: ModelState;
-  recognitionState: RecognitionState["state"];
+  microphoneEnabled: boolean;
+  chineseCharactersPerLine: number;
   skipAheadEnabled: boolean;
   onModeChange: (mode: ScrollMode) => void;
   onSpeedChange: (speed: number) => void;
+  onToggleMicrophone: () => void;
   onToggleSkipAhead: () => void;
   onEdit: () => void;
   onMicrophoneTest: () => void;
 }
 
-function listeningLabel(modelState: ModelState, state: RecognitionState["state"], mode: ScrollMode): string {
-  if (modelState === "downloading") return "准备模型";
-  if (modelState !== "ready") return "模型未就绪";
-  if (mode === "steady") return "匀速滚动";
-  if (state === "loading") return "正在加载";
-  if (state === "error") return "需要检查";
-  if (state === "paused" || state === "idle") return "已暂停";
-  return "正在聆听";
-}
-
 export function TopBar({
   mode,
   speed,
-  modelState,
-  recognitionState,
+  microphoneEnabled,
+  chineseCharactersPerLine,
   skipAheadEnabled,
   onModeChange,
   onSpeedChange,
+  onToggleMicrophone,
   onToggleSkipAhead,
   onEdit,
   onMicrophoneTest,
 }: TopBarProps) {
-  const isListening = recognitionState === "listening" && mode === "follow";
+  const charactersPerMinute = Math.round(Math.max(1, chineseCharactersPerLine) * 8 * speed);
 
   return (
     <header className="topbar">
@@ -59,37 +51,46 @@ export function TopBar({
           </button>
         </div>
 
-        <div className={`listening-status ${isListening ? "is-live" : ""}`} aria-live="polite">
-          <Mic size={21} strokeWidth={2} />
-          <span>{listeningLabel(modelState, recognitionState, mode)}</span>
-        </div>
+        {mode === "follow" ? (
+          <>
+            <button
+              className={`microphone-toggle ${microphoneEnabled ? "is-active" : ""}`}
+              onClick={onToggleMicrophone}
+              aria-pressed={microphoneEnabled}
+              title={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
+            >
+              {microphoneEnabled ? <Mic size={19} /> : <MicOff size={19} />}
+              <span>{microphoneEnabled ? "关闭麦克风" : "开启麦克风"}</span>
+            </button>
 
-        <button
-          className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
-          onClick={onToggleSkipAhead}
-          aria-pressed={skipAheadEnabled}
-          title={skipAheadEnabled
-            ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
-            : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
-        >
-          <Shuffle size={18} />
-          <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>
-        </button>
-
-        <label className={`speed-select ${mode === "follow" ? "is-muted" : ""}`}>
-          <span>速度</span>
-          <select
-            value={speed.toFixed(1)}
-            onChange={(event) => onSpeedChange(Number(event.target.value))}
-            disabled={mode === "follow"}
-            aria-label="匀速滚动速度"
-          >
-            {Array.from({ length: 16 }, (_, index) => 0.5 + index * 0.1).map((value) => (
-              <option value={value.toFixed(1)} key={value.toFixed(1)}>{value.toFixed(1)}×</option>
-            ))}
-          </select>
-          <ChevronDown size={17} aria-hidden="true" />
-        </label>
+            <button
+              className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
+              onClick={onToggleSkipAhead}
+              aria-pressed={skipAheadEnabled}
+              title={skipAheadEnabled
+                ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
+                : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
+            >
+              <Shuffle size={18} />
+              <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>
+            </button>
+          </>
+        ) : (
+          <label className="speed-control" title={`当前约 ${charactersPerMinute} 字/分`}>
+            <span className="speed-control__label">速度</span>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={speed}
+              onChange={(event) => onSpeedChange(Number(event.target.value))}
+              aria-label="匀速滚动速度"
+              aria-valuetext={`约 ${charactersPerMinute} 字/分`}
+            />
+            <output>{charactersPerMinute} 字/分</output>
+          </label>
+        )}
 
         <button className="microphone-test-button" onClick={onMicrophoneTest}>
           <Radio size={19} />

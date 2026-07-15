@@ -21,11 +21,12 @@ interface TeleprompterCanvasProps {
   dimStrength: number;
   mirrored: boolean;
   mode: ScrollMode;
+  onChineseCharactersPerLineChange?: (value: number) => void;
   onManualScroll?: () => void;
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, dimStrength, mirrored, mode, onManualScroll }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
@@ -54,6 +55,15 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         "--dimmed-cue-opacity": String(0.9 - (0.35 * strength)),
       } as CSSProperties;
     }, [dimStrength]);
+
+    const chineseCharactersPerLine = useCallback(() => {
+      const scriptNode = scriptRef.current;
+      if (!scriptNode) return 20;
+      const styles = window.getComputedStyle(scriptNode);
+      const horizontalPadding = Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+      const availableWidth = Math.max(fontSize, scriptNode.clientWidth - horizontalPadding);
+      return Math.max(1, Math.round(availableWidth / fontSize));
+    }, [fontSize]);
 
     const cueTargetTokenId = useCallback((cueTokenIndex: number) => {
       const previousSpokenToken = [...document.tokens.slice(0, cueTokenIndex)]
@@ -225,9 +235,10 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       const frame = window.requestAnimationFrame(() => {
         updateFocusedLineTokens();
         updateCuePlacements();
+        onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       });
       return () => window.cancelAnimationFrame(frame);
-    }, [fontSize, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, fontSize, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
@@ -236,6 +247,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       const updateMeasurements = () => {
         updateFocusedLineTokens();
         updateCuePlacements();
+        onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       };
 
       if (typeof ResizeObserver === "undefined") {
@@ -250,7 +262,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         observer.disconnect();
         window.removeEventListener("resize", updateMeasurements);
       };
-    }, [updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">

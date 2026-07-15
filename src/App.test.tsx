@@ -230,6 +230,25 @@ describe("microphone test panel", () => {
     });
   });
 
+  it("shows microphone control only for follow mode and a horizontal speed slider only for steady mode", () => {
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "关闭麦克风" })).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "匀速滚动速度" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "匀速滚动" }));
+
+    expect(screen.getByRole("slider", { name: "匀速滚动速度" })).toHaveValue("1");
+    expect(screen.queryByRole("button", { name: "关闭麦克风" })).not.toBeInTheDocument();
+  });
+
+  it("renders font size as a draggable range with its current pixel value", () => {
+    render(<App />);
+
+    expect(screen.getByRole("slider", { name: "文字大小" })).toHaveValue("68");
+    expect(screen.getByText("68px")).toBeInTheDocument();
+  });
+
   it("toggles the pure reading mode chrome", () => {
     render(<App />);
 
@@ -243,6 +262,7 @@ describe("microphone test panel", () => {
 
     expect(shell).toHaveClass("is-chrome-hidden");
     expect(screen.getByRole("button", { name: "显示上下边栏" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全屏" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "显示上下边栏" }));
 

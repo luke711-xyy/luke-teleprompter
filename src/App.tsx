@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Maximize, Mic, MicOff, Minimize } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
@@ -62,6 +62,8 @@ export default function App() {
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function App() {
   const document = useMemo(() => parseScript(script), [script]);
 
   followResultHandlerRef.current = (result) => {
-    if (!playing || mode !== "follow") return;
+    if (!playing || !microphoneEnabled || mode !== "follow") return;
     const nativeRecognition = isTauri();
     if (nativeRecognition && !result.isFinal) return;
     const currentSearchableIndex = currentSearchableRef.current;
@@ -218,13 +220,13 @@ export default function App() {
   }, [activeTokenIndex, document.tokens]);
 
   useEffect(() => {
-    if (modelStatus.state !== "ready" || mode !== "follow" || !playing || editorOpen || microphoneTestOpen) {
+    if (modelStatus.state !== "ready" || mode !== "follow" || !playing || !microphoneEnabled || editorOpen || microphoneTestOpen) {
       if (isTauri()) void stopRecognition();
       else {
         browserSpeechRef.current?.stop();
         browserSpeechRef.current = null;
       }
-      if (!playing && recognitionState === "listening") setRecognitionState("paused");
+      if ((!playing || !microphoneEnabled) && recognitionState === "listening") setRecognitionState("paused");
       return;
     }
 
@@ -253,7 +255,7 @@ export default function App() {
       session.stop();
       if (browserSpeechRef.current === session) browserSpeechRef.current = null;
     };
-  }, [editorOpen, microphoneTestOpen, mode, modelStatus.state, playing]);
+  }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing]);
 
   const handleOpenMicrophoneTest = () => {
     setMicrophoneTestOpen(true);
@@ -339,7 +341,10 @@ export default function App() {
     const interval = window.setInterval(() => {
       const viewport = globalThis.document.querySelector<HTMLElement>(".prompt-viewport");
       if (viewport) {
-        const pixelsPerTick = (((fontSize * 1.42) * 8 * speed) / 60) / 30;
+        const characterCapacity = Math.max(1, chineseCharactersPerLine);
+        const charactersPerMinute = characterCapacity * 8 * speed;
+        const linesPerMinute = charactersPerMinute / characterCapacity;
+        const pixelsPerTick = (((fontSize * 1.42) * linesPerMinute) / 60) / 30;
         const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
         if (Math.abs(viewport.scrollTop - steadyPositionRef.current) > 2) {
           steadyPositionRef.current = viewport.scrollTop;
@@ -361,7 +366,7 @@ export default function App() {
       }
     }, 1000 / 30);
     return () => window.clearInterval(interval);
-  }, [fontSize, mode, playing, speed]);
+  }, [chineseCharactersPerLine, fontSize, mode, playing, speed]);
 
   const moveToToken = useCallback((index: number) => {
     const safeIndex = Math.min(Math.max(0, index), Math.max(0, document.tokens.length - 1));
@@ -381,6 +386,10 @@ export default function App() {
     recoveryMatchGateRef.current.reset();
     localMissStartedAtRef.current = null;
   };
+
+  const handleChineseCharactersPerLineChange = useCallback((value: number) => {
+    setChineseCharactersPerLine((current) => current === value ? current : value);
+  }, []);
 
   const handleToggleFullscreen = async () => {
     const next = !fullscreen;
@@ -443,24 +452,45 @@ export default function App() {
 
   return (
     <div className={`app-shell ${chromeVisible ? "" : "is-chrome-hidden"}`}>
-      <button
-        className="chrome-toggle-button"
-        type="button"
-        onClick={() => setChromeVisible((value) => !value)}
-        aria-label={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
-        title={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
+      <div className="chrome-actions">
+        <button
+          className="chrome-toggle-button"
+          type="button"
+          onClick={() => void handleToggleFullscreen()}
+          aria-label={fullscreen ? "退出全屏" : "全屏"}
+          title={fullscreen ? "退出全屏" : "全屏"}
+        >
+          {fullscreen ? <Minimize size={23} /> : <Maximize size={23} />}
+        </button>
+        <button
+          className="chrome-toggle-button"
+          type="button"
+          onClick={() => setChromeVisible((value) => !value)}
+          aria-label={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
+          title={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
+        >
+          {chromeVisible ? <EyeOff size={24} /> : <Eye size={24} />}
+        </button>
+      </div>
+
+      <div
+        className={`microphone-indicator ${microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "is-live" : ""}`}
+        role="img"
+        aria-label={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音" : "麦克风未收音"}
+        title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音" : "麦克风未收音"}
       >
-        {chromeVisible ? <EyeOff size={24} /> : <Eye size={24} />}
-      </button>
+        {microphoneEnabled && mode === "follow" ? <Mic size={21} /> : <MicOff size={21} />}
+      </div>
 
       <TopBar
         mode={mode}
         speed={speed}
-        modelState={modelStatus.state}
-        recognitionState={recognitionState}
+        microphoneEnabled={microphoneEnabled}
+        chineseCharactersPerLine={chineseCharactersPerLine}
         skipAheadEnabled={skipAheadEnabled}
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
+        onToggleMicrophone={() => setMicrophoneEnabled((value) => !value)}
         onToggleSkipAhead={() => {
           setSkipAheadEnabled((value) => !value);
           hysteresisRef.current.reset();
@@ -480,12 +510,12 @@ export default function App() {
         dimStrength={dimStrength}
         mirrored={mirrored}
         mode={mode}
+        onChineseCharactersPerLineChange={handleChineseCharactersPerLineChange}
       />
 
       <BottomControls
         playing={playing}
         mirrored={mirrored}
-        fullscreen={fullscreen}
         fontSize={fontSize}
         focusPosition={focusPosition}
         dimStrength={dimStrength}
@@ -498,7 +528,6 @@ export default function App() {
         onFocusPositionChange={setFocusPosition}
         onDimStrengthChange={setDimStrength}
         onToggleMirror={() => setMirrored((value) => !value)}
-        onToggleFullscreen={() => void handleToggleFullscreen()}
       />
 
       <div className="local-status" title={statusMessage || undefined}>

@@ -5,8 +5,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   EyeOff,
-  Maximize,
-  Minimize,
   MoveVertical,
   Pause,
   Play,
@@ -25,7 +23,6 @@ import {
 interface BottomControlsProps {
   playing: boolean;
   mirrored: boolean;
-  fullscreen: boolean;
   fontSize: number;
   focusPosition: number;
   dimStrength: number;
@@ -38,13 +35,11 @@ interface BottomControlsProps {
   onFocusPositionChange: (value: number) => void;
   onDimStrengthChange: (value: number) => void;
   onToggleMirror: () => void;
-  onToggleFullscreen: () => void;
 }
 
 export function BottomControls({
   playing,
   mirrored,
-  fullscreen,
   fontSize,
   focusPosition,
   dimStrength,
@@ -57,7 +52,6 @@ export function BottomControls({
   onFocusPositionChange,
   onDimStrengthChange,
   onToggleMirror,
-  onToggleFullscreen,
 }: BottomControlsProps) {
   return (
     <footer className="bottom-controls">
@@ -140,18 +134,23 @@ export function BottomControls({
           </span>
         </label>
         <span className="control-divider" />
-        <label className="font-control" title={`当前字号 ${fontSize}px`}>
-          <CaseSensitive size={31} strokeWidth={1.65} />
-          <span>文字大小</span>
-          <input
-            type="range"
-            min={FONT_SIZE_MIN}
-            max={FONT_SIZE_MAX}
-            step="2"
-            value={fontSize}
-            onChange={(event) => onFontSizeChange(Number(event.target.value))}
-            aria-label="文字大小"
-          />
+        <label className="position-control font-control" title={`当前字号 ${fontSize}px`}>
+          <span className="position-control__label">
+            <CaseSensitive size={23} strokeWidth={1.65} />
+            文字大小
+          </span>
+          <span className="position-control__input-row">
+            <input
+              type="range"
+              min={FONT_SIZE_MIN}
+              max={FONT_SIZE_MAX}
+              step="2"
+              value={fontSize}
+              onChange={(event) => onFontSizeChange(Number(event.target.value))}
+              aria-label="文字大小"
+            />
+            <output>{fontSize}px</output>
+          </span>
         </label>
         <span className="control-divider" />
         <IconButton
@@ -160,12 +159,6 @@ export function BottomControls({
           onClick={onToggleMirror}
           aria-pressed={mirrored}
           className={mirrored ? "is-active" : ""}
-        />
-        <span className="control-divider" />
-        <IconButton
-          icon={fullscreen ? <Minimize size={26} /> : <Maximize size={26} />}
-          label={fullscreen ? "退出全屏" : "全屏"}
-          onClick={onToggleFullscreen}
         />
       </div>
     </footer>
