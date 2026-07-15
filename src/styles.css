@@ -113,7 +113,17 @@ input:focus-visible {
   color: #8f8e89;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(16px);
-  pointer-events: none;
+  cursor: pointer;
+}
+
+.microphone-indicator:hover {
+  border-color: rgba(255, 173, 40, 0.48);
+  background: rgba(56, 48, 34, 0.74);
+  color: var(--accent);
+}
+
+.microphone-indicator:active {
+  transform: scale(0.96);
 }
 
 .microphone-indicator.is-live {

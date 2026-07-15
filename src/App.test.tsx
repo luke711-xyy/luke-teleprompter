@@ -261,16 +261,21 @@ describe("microphone test panel", () => {
     });
   });
 
-  it("shows microphone control only for follow mode and a horizontal speed slider only for steady mode", () => {
+  it("uses the left microphone icon as the only microphone toggle and keeps speed in steady mode", () => {
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "关闭麦克风" })).toBeInTheDocument();
+    const microphoneToggle = screen.getByRole("button", { name: "关闭麦克风" });
+    expect(microphoneToggle).toHaveClass("microphone-indicator");
+    expect(globalThis.document.querySelector(".microphone-toggle")).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "匀速滚动速度" })).not.toBeInTheDocument();
+
+    fireEvent.click(microphoneToggle);
+    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-indicator");
 
     fireEvent.click(screen.getByRole("button", { name: "匀速滚动" }));
 
     expect(screen.getByRole("slider", { name: "匀速滚动速度" })).toHaveValue("1");
-    expect(screen.queryByRole("button", { name: "关闭麦克风" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-indicator");
   });
 
   it("renders font size as a draggable range with its current pixel value", () => {

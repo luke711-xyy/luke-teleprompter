@@ -1,15 +1,13 @@
-import { Mic, MicOff, Pencil, Shuffle } from "lucide-react";
+import { Pencil, Shuffle } from "lucide-react";
 import type { ScrollMode } from "../lib/types";
 
 interface TopBarProps {
   mode: ScrollMode;
   speed: number;
-  microphoneEnabled: boolean;
   chineseCharactersPerLine: number;
   skipAheadEnabled: boolean;
   onModeChange: (mode: ScrollMode) => void;
   onSpeedChange: (speed: number) => void;
-  onToggleMicrophone: () => void;
   onToggleSkipAhead: () => void;
   onEdit: () => void;
 }
@@ -17,12 +15,10 @@ interface TopBarProps {
 export function TopBar({
   mode,
   speed,
-  microphoneEnabled,
   chineseCharactersPerLine,
   skipAheadEnabled,
   onModeChange,
   onSpeedChange,
-  onToggleMicrophone,
   onToggleSkipAhead,
   onEdit,
 }: TopBarProps) {
@@ -50,29 +46,17 @@ export function TopBar({
         </div>
 
         {mode === "follow" ? (
-          <>
-            <button
-              className={`microphone-toggle ${microphoneEnabled ? "is-active" : ""}`}
-              onClick={onToggleMicrophone}
-              aria-pressed={microphoneEnabled}
-              title={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
-            >
-              {microphoneEnabled ? <Mic size={19} /> : <MicOff size={19} />}
-              <span>{microphoneEnabled ? "关闭麦克风" : "开启麦克风"}</span>
-            </button>
-
-            <button
-              className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
-              onClick={onToggleSkipAhead}
-              aria-pressed={skipAheadEnabled}
-              title={skipAheadEnabled
-                ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
-                : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
-            >
-              <Shuffle size={18} />
-              <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>
-            </button>
-          </>
+          <button
+            className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
+            onClick={onToggleSkipAhead}
+            aria-pressed={skipAheadEnabled}
+            title={skipAheadEnabled
+              ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
+              : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
+          >
+            <Shuffle size={18} />
+            <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>
+          </button>
         ) : (
           <label className="speed-control" title={`当前约 ${charactersPerMinute} 字/分`}>
             <span className="speed-control__label">速度</span>

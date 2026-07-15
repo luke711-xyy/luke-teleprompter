@@ -486,24 +486,24 @@ export default function App() {
         </button>
       </div>
 
-      <div
+      <button
         className={`microphone-indicator ${microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "is-live" : ""}`}
-        role="img"
-        aria-label={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音" : "麦克风未收音"}
-        title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音" : "麦克风未收音"}
+        type="button"
+        onClick={() => setMicrophoneEnabled((value) => !value)}
+        aria-pressed={microphoneEnabled}
+        aria-label={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
+        title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音；点击关闭" : microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
       >
-        {microphoneEnabled && mode === "follow" ? <Mic size={21} /> : <MicOff size={21} />}
-      </div>
+        {microphoneEnabled ? <Mic size={21} /> : <MicOff size={21} />}
+      </button>
 
       <TopBar
         mode={mode}
         speed={speed}
-        microphoneEnabled={microphoneEnabled}
         chineseCharactersPerLine={chineseCharactersPerLine}
         skipAheadEnabled={skipAheadEnabled}
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
-        onToggleMicrophone={() => setMicrophoneEnabled((value) => !value)}
         onToggleSkipAhead={() => {
           setSkipAheadEnabled((value) => !value);
           hysteresisRef.current.reset();
