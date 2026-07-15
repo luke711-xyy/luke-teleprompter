@@ -68,7 +68,9 @@ export function TopBar({
           className={`skip-ahead-button ${skipAheadEnabled ? "is-active" : ""}`}
           onClick={onToggleSkipAhead}
           aria-pressed={skipAheadEnabled}
-          title={skipAheadEnabled ? "跳读已开启：可根据后文匹配追赶" : "跳读已关闭：只按当前位置顺序阅读"}
+          title={skipAheadEnabled
+            ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
+            : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
         >
           <Shuffle size={18} />
           <span>{skipAheadEnabled ? "跳读开" : "顺序读"}</span>

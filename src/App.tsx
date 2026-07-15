@@ -9,7 +9,7 @@ import { MobileOrientationGate } from "./components/MobileOrientationGate";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
-import { findForwardMatch, MatchHysteresis } from "./lib/matcher";
+import { findForwardMatch, MatchHysteresis, RecoveryMatchGate } from "./lib/matcher";
 import {
   firstSentenceToken,
   lastSentenceToken,
@@ -41,6 +41,8 @@ import {
 import type { ModelProgress, ModelStatus, RecognitionLevel, RecognitionResult, RecognitionState, ScrollMode } from "./lib/types";
 
 const initialSettings = loadSettings();
+const RECOVERY_AFTER_LOCAL_MISS_MS = 2500;
+const RECOVERY_MIN_FORWARD_START = 10;
 
 function mergeMicrophoneResult(current: RecognitionResult[], result: RecognitionResult): RecognitionResult[] {
   const previous = current.at(-1);
@@ -77,6 +79,8 @@ export default function App() {
   const currentSearchableRef = useRef(0);
   const steadyPositionRef = useRef(0);
   const hysteresisRef = useRef(new MatchHysteresis());
+  const recoveryMatchGateRef = useRef(new RecoveryMatchGate());
+  const localMissStartedAtRef = useRef<number | null>(null);
   const browserSpeechRef = useRef<BrowserSpeechSession | null>(null);
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
@@ -86,13 +90,44 @@ export default function App() {
     if (!playing || mode !== "follow") return;
     const nativeRecognition = isTauri();
     if (nativeRecognition && !result.isFinal) return;
-    const match = findForwardMatch(
+    const currentSearchableIndex = currentSearchableRef.current;
+    const localCandidate = findForwardMatch(
       result.text,
       document,
-      currentSearchableRef.current,
-      result.isFinal ? 180 : 72,
-      skipAheadEnabled,
+      currentSearchableIndex,
+      result.isFinal ? 30 : 20,
+      false,
     );
+    const localMinimumScore = result.isFinal ? 0.72 : 0.76;
+    const localMatch = localCandidate && localCandidate.score >= localMinimumScore
+      ? localCandidate
+      : null;
+    let match = localMatch;
+
+    if (localMatch) {
+      localMissStartedAtRef.current = null;
+      recoveryMatchGateRef.current.reset();
+    } else {
+      const now = performance.now();
+      localMissStartedAtRef.current ??= now;
+      const canAttemptRecovery = skipAheadEnabled
+        && now - localMissStartedAtRef.current >= RECOVERY_AFTER_LOCAL_MISS_MS;
+      if (!canAttemptRecovery) return;
+
+      const recoveryMatch = findForwardMatch(result.text, document, currentSearchableIndex, result.isFinal ? 180 : 72, true);
+      const isDistant = recoveryMatch
+        && recoveryMatch.startSearchableIndex - currentSearchableIndex >= RECOVERY_MIN_FORWARD_START;
+      if (!recoveryMatch || !isDistant) return;
+
+      const recoveryConfirmed = result.isFinal
+        ? recoveryMatchGateRef.current.confirmFinal(recoveryMatch)
+        : recoveryMatchGateRef.current.confirm(recoveryMatch);
+      if (!recoveryConfirmed) return;
+
+      match = recoveryMatch;
+      localMissStartedAtRef.current = null;
+    }
+
     if (!match || match.searchableIndex < currentSearchableRef.current) return;
     // Chrome interim transcripts arrive much earlier than final results. A
     // stronger text-match threshold lets them move the prompt provisionally
@@ -331,6 +366,8 @@ export default function App() {
   const moveToToken = useCallback((index: number) => {
     const safeIndex = Math.min(Math.max(0, index), Math.max(0, document.tokens.length - 1));
     hysteresisRef.current.reset();
+    recoveryMatchGateRef.current.reset();
+    localMissStartedAtRef.current = null;
     setActiveTokenIndex(safeIndex);
     canvasRef.current?.scrollToToken(safeIndex);
   }, [document.tokens.length]);
@@ -341,6 +378,8 @@ export default function App() {
     setMode(nextMode);
     setPlaying(true);
     hysteresisRef.current.reset();
+    recoveryMatchGateRef.current.reset();
+    localMissStartedAtRef.current = null;
   };
 
   const handleToggleFullscreen = async () => {
@@ -425,6 +464,8 @@ export default function App() {
         onToggleSkipAhead={() => {
           setSkipAheadEnabled((value) => !value);
           hysteresisRef.current.reset();
+          recoveryMatchGateRef.current.reset();
+          localMissStartedAtRef.current = null;
         }}
         onEdit={() => setEditorOpen(true)}
         onMicrophoneTest={handleOpenMicrophoneTest}
@@ -475,6 +516,8 @@ export default function App() {
           setActiveTokenIndex(0);
           currentSearchableRef.current = 0;
           hysteresisRef.current.reset();
+          recoveryMatchGateRef.current.reset();
+          localMissStartedAtRef.current = null;
           canvasRef.current?.setScrollTop(0);
         }}
         onOpenFile={async () => {

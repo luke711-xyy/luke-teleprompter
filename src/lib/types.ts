@@ -20,6 +20,7 @@ export interface ScriptDocument {
 
 export interface FollowMatch {
   displayTokenIndex: number;
+  startSearchableIndex: number;
   searchableIndex: number;
   score: number;
   matchedText: string;

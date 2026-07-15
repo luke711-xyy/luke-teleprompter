@@ -1,6 +1,11 @@
 import { searchableUnits } from "./script";
 import type { FollowMatch, ScriptDocument } from "./types";
 
+const SEQUENTIAL_MAX_LOOKAHEAD = 30;
+const SEQUENTIAL_START_WINDOW = 10;
+const RECOVERY_MIN_SCORE = 0.86;
+const RECOVERY_MIN_UNITS = 5;
+
 function editDistance(a: string[], b: string[]): number {
   const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
   const current = new Array<number>(b.length + 1);
@@ -33,8 +38,11 @@ export function findForwardMatch(
   if (allRecognized.length < 2 || document.searchableTokens.length === 0) return null;
 
   const recognized = allRecognized.slice(-18);
-  const searchEnd = Math.min(document.searchableTokens.length, currentSearchableIndex + maxLookahead);
-  const startEnd = allowSkipAhead ? searchEnd : Math.min(searchEnd, currentSearchableIndex + 1);
+  const effectiveLookahead = allowSkipAhead ? maxLookahead : Math.min(maxLookahead, SEQUENTIAL_MAX_LOOKAHEAD);
+  const searchEnd = Math.min(document.searchableTokens.length, currentSearchableIndex + effectiveLookahead);
+  const startEnd = allowSkipAhead
+    ? searchEnd
+    : Math.min(searchEnd, currentSearchableIndex + SEQUENTIAL_START_WINDOW);
   let best: FollowMatch | null = null;
 
   for (let start = currentSearchableIndex; start < startEnd; start += 1) {
@@ -53,6 +61,7 @@ export function findForwardMatch(
         const targetSearchable = start + length - 1;
         const candidate: FollowMatch = {
           displayTokenIndex: document.searchableTokens[targetSearchable].displayIndex,
+          startSearchableIndex: start,
           searchableIndex: targetSearchable,
           score,
           matchedText: heard.join(" "),
@@ -92,5 +101,46 @@ export class MatchHysteresis {
   reset(): void {
     this.pendingSentence = -1;
     this.repeats = 0;
+  }
+}
+
+export class RecoveryMatchGate {
+  private pendingStart = -1;
+  private pendingTarget = -1;
+  private repeats = 0;
+
+  confirm(match: FollowMatch): boolean {
+    if (!this.isStrong(match)) {
+      this.reset();
+      return false;
+    }
+
+    const sameCandidate = Math.abs(match.startSearchableIndex - this.pendingStart) <= 3
+      && Math.abs(match.searchableIndex - this.pendingTarget) <= 3;
+    if (sameCandidate) {
+      this.repeats += 1;
+    } else {
+      this.pendingStart = match.startSearchableIndex;
+      this.pendingTarget = match.searchableIndex;
+      this.repeats = 1;
+    }
+    return this.repeats >= 2;
+  }
+
+  confirmFinal(match: FollowMatch): boolean {
+    const accepted = this.isStrong(match);
+    this.reset();
+    return accepted;
+  }
+
+  reset(): void {
+    this.pendingStart = -1;
+    this.pendingTarget = -1;
+    this.repeats = 0;
+  }
+
+  private isStrong(match: FollowMatch): boolean {
+    return match.score >= RECOVERY_MIN_SCORE
+      && searchableUnits(match.matchedText).length >= RECOVERY_MIN_UNITS;
   }
 }

@@ -1,11 +1,14 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const speechStartMock = vi.fn();
 const speechLanguageMock = vi.fn();
-const recognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
+const localRecognizedPhrase = "今天我们来看看这款产品 and why it fits naturally into your everyday workflow";
+const distantRecognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
+let recognizedPhrase = localRecognizedPhrase;
 let emitFinalRecognition = true;
+let emitRecognition: ((text: string, isFinal: boolean) => void) | undefined;
 const requestFullscreenMock = vi.fn(async () => undefined);
 const orientationLockMock = vi.fn(async () => undefined);
 
@@ -22,6 +25,8 @@ describe("microphone test panel", () => {
     speechStartMock.mockReset();
     speechLanguageMock.mockReset();
     emitFinalRecognition = true;
+    recognizedPhrase = localRecognizedPhrase;
+    emitRecognition = undefined;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,
@@ -60,27 +65,26 @@ describe("microphone test panel", () => {
       onspeechstart: ((event: Event) => void) | null = null;
       onspeechend: ((event: Event) => void) | null = null;
 
+      constructor() {
+        emitRecognition = (text, isFinal) => {
+          const result = Object.assign(
+            [{ transcript: text, confidence: isFinal ? 0.91 : 0.01 }],
+            { isFinal },
+          );
+          this.onresult?.(Object.assign(new Event("result"), {
+            resultIndex: 0,
+            results: [result],
+          }));
+        };
+      }
+
       start(_track?: MediaStreamTrack) {
         speechStartMock(_track);
         speechLanguageMock(this.lang);
         this.onstart?.(new Event("start"));
-        const interim = Object.assign(
-          [{ transcript: recognizedPhrase, confidence: 0.01 }],
-          { isFinal: false },
-        );
-        this.onresult?.(Object.assign(new Event("result"), {
-          resultIndex: 0,
-          results: [interim],
-        }));
+        emitRecognition?.(recognizedPhrase, false);
         if (emitFinalRecognition) {
-          const finalResult = Object.assign(
-            [{ transcript: recognizedPhrase, confidence: 0.91 }],
-            { isFinal: true },
-          );
-          this.onresult?.(Object.assign(new Event("result"), {
-            resultIndex: 0,
-            results: [finalResult],
-          }));
+          emitRecognition?.(recognizedPhrase, true);
         }
       }
 
@@ -119,21 +123,55 @@ describe("microphone test panel", () => {
     expect(screen.queryByText(recognizedPhrase)).not.toBeInTheDocument();
   });
 
-  it("advances the browser teleprompter from one final recognition result", async () => {
+  it("advances the browser teleprompter from one local final recognition result", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
+      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
     });
   });
 
-  it("advances provisionally from a strong Chrome interim result", async () => {
+  it("advances provisionally from a strong local Chrome interim result", async () => {
     emitFinalRecognition = false;
     render(<App />);
 
     await waitFor(() => {
+      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
+    });
+  });
+
+  it("only recovers to a distant final result after local tracking has been missing for a while", async () => {
+    emitFinalRecognition = false;
+    recognizedPhrase = distantRecognizedPhrase;
+    let now = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    render(<App />);
+
+    await waitFor(() => expect(speechStartMock).toHaveBeenCalled());
+    expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
+    now = 2501;
+    await act(async () => emitRecognition?.(distantRecognizedPhrase, true));
+
+    await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
     });
+    clock.mockRestore();
+  });
+
+  it("does not use distant recovery when sequential reading is enabled", async () => {
+    emitFinalRecognition = false;
+    recognizedPhrase = distantRecognizedPhrase;
+    let now = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    render(<App />);
+    await waitFor(() => expect(speechStartMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "跳读开" }));
+
+    now = 2501;
+    await act(async () => emitRecognition?.(distantRecognizedPhrase, true));
+
+    expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
+    clock.mockRestore();
   });
 
   it("moves and persists the two-line reading position", async () => {
@@ -215,7 +253,7 @@ describe("microphone test panel", () => {
   it("jumps to the first and last sentences from the transport controls", async () => {
     render(<App />);
     await waitFor(() => {
-      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
+      expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
     });
 
     fireEvent.click(screen.getByRole("button", { name: "第一句" }));
