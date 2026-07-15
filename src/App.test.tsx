@@ -217,6 +217,14 @@ describe("microphone test panel", () => {
     const fontSlider = screen.getByRole("slider", { name: "文字大小" });
     expect(fontSlider).toHaveAttribute("min", "44");
     expect(fontSlider).toHaveAttribute("max", "148");
+    expect(screen.getByRole("slider", { name: "行距" })).toHaveAttribute("min", "0.8");
+  });
+
+  it("does not render the removed recognition status bar", () => {
+    render(<App />);
+
+    expect(screen.queryByText(/中文\s*\/\s*English/)).not.toBeInTheDocument();
+    expect(globalThis.document.querySelector(".local-status")).not.toBeInTheDocument();
   });
 
   it("adjusts and persists dimming strength for non-reading text", async () => {

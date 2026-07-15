@@ -7,7 +7,7 @@ export const FONT_SIZE_MAX = 148;
 export const DIM_STRENGTH_MIN = 0;
 export const DIM_STRENGTH_MAX = 100;
 
-export const LINE_HEIGHT_MIN = 1.15;
+export const LINE_HEIGHT_MIN = 0.8;
 export const LINE_HEIGHT_MAX = 2.2;
 
 // Each value applies to one side. A percentage keeps the reading width

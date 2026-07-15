@@ -557,11 +557,6 @@ export default function App() {
         }}
       />
 
-      <div className="local-status" title={statusMessage || undefined}>
-        <span className={recognitionState === "listening" ? "is-live" : ""} />
-        中文 / English · {isTauri() ? "本地识别" : "Chrome 语音识别"}
-      </div>
-
       <EditorModal
         open={editorOpen}
         script={script}
