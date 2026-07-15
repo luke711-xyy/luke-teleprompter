@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Maximize, Mic, MicOff, Minimize, Settings } from "lucide-react";
+import { Maximize, Mic, MicOff, Minimize, Pencil, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
@@ -457,6 +457,15 @@ export default function App() {
     <div className="app-shell">
       <div className="chrome-actions">
         <button
+          className="chrome-toggle-button edit-button"
+          type="button"
+          onClick={() => setEditorOpen(true)}
+          aria-label="编辑文稿"
+          title="编辑文稿"
+        >
+          <Pencil size={22} />
+        </button>
+        <button
           className={`chrome-toggle-button ${settingsOpen ? "is-active" : ""}`}
           type="button"
           onClick={() => setSettingsOpen((value) => !value)}
@@ -493,7 +502,6 @@ export default function App() {
         chineseCharactersPerLine={chineseCharactersPerLine}
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
-        onEdit={() => setEditorOpen(true)}
       />
 
       <TeleprompterCanvas

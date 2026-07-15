@@ -292,13 +292,17 @@ describe("microphone test panel", () => {
     expect(screen.getByText("68px")).toBeInTheDocument();
   });
 
-  it("keeps a floating fullscreen control at the bottom right and leaves editing as an icon button", () => {
+  it("keeps a floating fullscreen control at the bottom right, places edit beside settings, and centers the mode switch", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "全屏" })).toHaveClass("fullscreen-floating-button");
     const editButton = screen.getByRole("button", { name: "编辑文稿" });
     expect(editButton).toHaveClass("edit-button");
+    expect(editButton).toHaveClass("chrome-toggle-button");
     expect(editButton).not.toHaveTextContent("编辑文稿");
+    const actionButtons = [...globalThis.document.querySelectorAll(".chrome-actions > button")];
+    expect(actionButtons.indexOf(editButton)).toBeLessThan(actionButtons.indexOf(screen.getByRole("button", { name: "打开设置" })));
+    expect(globalThis.document.querySelector(".topbar__mode-switch")).toBeInTheDocument();
   });
 
   it("jumps to the first and last sentences from the transport controls", async () => {

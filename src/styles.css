@@ -1629,9 +1629,9 @@ input:focus-visible {
   left: 0;
   z-index: 20;
   height: var(--chrome-height);
-  padding: 0 118px 0 136px;
+  padding: 0;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   background: linear-gradient(110deg, rgba(29, 29, 30, 0.78), rgba(20, 20, 21, 0.6));
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
@@ -1639,8 +1639,24 @@ input:focus-visible {
 }
 
 .topbar__controls {
-  justify-content: flex-end;
-  gap: 8px;
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: auto;
+}
+
+.topbar__mode-switch {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.topbar__controls > .speed-control {
+  position: absolute;
+  top: 50%;
+  left: calc(50% - 123px - 8px);
+  transform: translate(-100%, -50%);
 }
 
 .app-title {
@@ -1668,8 +1684,7 @@ input:focus-visible {
 .segmented,
 .microphone-toggle,
 .speed-control,
-.skip-ahead-button,
-.edit-button {
+.skip-ahead-button {
   height: 44px;
   border-color: rgba(255, 255, 255, 0.18);
   border-radius: 12px;
@@ -1685,8 +1700,7 @@ input:focus-visible {
 
 .segmented button,
 .microphone-toggle,
-.speed-control,
-.edit-button {
+.speed-control {
   font-size: 14px;
 }
 
@@ -1713,11 +1727,17 @@ input:focus-visible {
 .speed-control output { font-size: 11px; }
 
 .edit-button {
+  padding: 0;
+}
+
+.chrome-actions .edit-button {
   display: grid;
   width: 44px;
   min-width: 44px;
+  height: 44px;
   padding: 0;
   place-items: center;
+  border-radius: 999px;
 }
 
 .settings-drawer {
@@ -1811,7 +1831,6 @@ input:focus-visible {
 
   .segmented { width: 210px; flex-basis: 210px; }
   .microphone-toggle { min-width: 108px; }
-  .edit-button { width: 108px; }
   .speed-control { width: min(230px, 25vw); }
 }
 
@@ -1828,7 +1847,7 @@ input:focus-visible {
 
   .topbar {
     height: var(--chrome-height);
-    padding: 0 98px 0 64px;
+    padding: 0;
   }
 
   .app-title {
@@ -1837,7 +1856,11 @@ input:focus-visible {
     font-size: 8px;
   }
 
-  .topbar__controls { gap: 5px; padding: 0; }
+  .topbar__controls { padding: 0; }
+
+  .topbar__controls > .speed-control {
+    left: calc(50% - 105px - 5px);
+  }
 
   .chrome-actions {
     top: max(7px, calc(env(safe-area-inset-top) + 5px));
@@ -1850,11 +1873,17 @@ input:focus-visible {
     height: 40px;
   }
 
+  .chrome-actions .edit-button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    border-radius: 999px;
+  }
+
   .segmented,
   .microphone-toggle,
   .skip-ahead-button,
-  .speed-control,
-  .edit-button {
+  .speed-control {
     height: 38px;
     border-radius: 10px;
   }
@@ -1862,8 +1891,7 @@ input:focus-visible {
   .segmented { min-width: 136px; flex: 1 1 136px; }
   .segmented button { font-size: 12px; }
   .microphone-toggle,
-  .skip-ahead-button,
-  .edit-button { width: 40px; min-width: 40px; padding: 0; }
+  .skip-ahead-button { width: 40px; min-width: 40px; padding: 0; }
   .microphone-toggle span,
   .skip-ahead-button span,
   .edit-button span,

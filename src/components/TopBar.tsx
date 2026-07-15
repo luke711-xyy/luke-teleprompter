@@ -1,4 +1,3 @@
-import { Pencil } from "lucide-react";
 import type { ScrollMode } from "../lib/types";
 
 interface TopBarProps {
@@ -7,7 +6,6 @@ interface TopBarProps {
   chineseCharactersPerLine: number;
   onModeChange: (mode: ScrollMode) => void;
   onSpeedChange: (speed: number) => void;
-  onEdit: () => void;
 }
 
 export function TopBar({
@@ -16,7 +14,6 @@ export function TopBar({
   chineseCharactersPerLine,
   onModeChange,
   onSpeedChange,
-  onEdit,
 }: TopBarProps) {
   const charactersPerMinute = Math.round(Math.max(1, chineseCharactersPerLine) * 8 * speed);
 
@@ -24,7 +21,7 @@ export function TopBar({
     <header className="topbar">
       <h1 className="app-title"><span>luke</span><span>teleprompter</span></h1>
       <div className="topbar__controls">
-        <div className="segmented" role="group" aria-label="滚动模式">
+        <div className="segmented topbar__mode-switch" role="group" aria-label="滚动模式">
           <button
             className={mode === "follow" ? "is-active" : ""}
             onClick={() => onModeChange("follow")}
@@ -57,10 +54,6 @@ export function TopBar({
             <output>{charactersPerMinute} 字/分</output>
           </label>
         )}
-
-        <button className="edit-button" onClick={onEdit} aria-label="编辑文稿" title="编辑文稿">
-          <Pencil size={19} />
-        </button>
       </div>
     </header>
   );
