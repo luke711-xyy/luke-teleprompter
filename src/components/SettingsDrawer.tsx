@@ -4,6 +4,7 @@ import {
   MoveVertical,
   Radio,
   RectangleHorizontal,
+  Shuffle,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -28,6 +29,7 @@ interface SettingsDrawerProps {
   sidePadding: number;
   focusPosition: number;
   dimStrength: number;
+  skipAheadEnabled: boolean;
   mirrored: boolean;
   onClose: () => void;
   onFontSizeChange: (value: number) => void;
@@ -35,6 +37,7 @@ interface SettingsDrawerProps {
   onSidePaddingChange: (value: number) => void;
   onFocusPositionChange: (value: number) => void;
   onDimStrengthChange: (value: number) => void;
+  onToggleSkipAhead: () => void;
   onToggleMirror: () => void;
   onMicrophoneTest: () => void;
 }
@@ -80,6 +83,7 @@ export function SettingsDrawer({
   sidePadding,
   focusPosition,
   dimStrength,
+  skipAheadEnabled,
   mirrored,
   onClose,
   onFontSizeChange,
@@ -87,6 +91,7 @@ export function SettingsDrawer({
   onSidePaddingChange,
   onFocusPositionChange,
   onDimStrengthChange,
+  onToggleSkipAhead,
   onToggleMirror,
   onMicrophoneTest,
 }: SettingsDrawerProps) {
@@ -155,6 +160,18 @@ export function SettingsDrawer({
         <button className={`drawer-toggle ${mirrored ? "is-active" : ""}`} onClick={onToggleMirror} aria-pressed={mirrored}>
           <RectangleHorizontal size={20} /> 镜像（水平）
           <span>{mirrored ? "已开启" : "关闭"}</span>
+        </button>
+        <button
+          className={`drawer-toggle ${skipAheadEnabled ? "is-active" : ""}`}
+          onClick={onToggleSkipAhead}
+          aria-label="跳读匹配"
+          aria-pressed={skipAheadEnabled}
+          title={skipAheadEnabled
+            ? "智能跳读已开启：局部持续失配后才会尝试恢复定位"
+            : "顺序读已开启：只在当前位置附近追赶，不会远距跳读"}
+        >
+          <Shuffle size={20} /> 跳读匹配
+          <span>{skipAheadEnabled ? "已开启" : "顺序"}</span>
         </button>
       </div>
       <footer className="settings-drawer__footer">

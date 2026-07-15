@@ -64,16 +64,6 @@ input:focus-visible {
   background: #0b0b0c;
 }
 
-.app-shell.is-chrome-hidden {
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.app-shell.is-chrome-hidden .topbar,
-.app-shell.is-chrome-hidden .bottom-controls,
-.app-shell.is-chrome-hidden .local-status {
-  display: none;
-}
-
 .chrome-actions {
   position: fixed;
   z-index: 80;
@@ -98,35 +88,11 @@ input:focus-visible {
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
-.microphone-indicator {
-  position: fixed;
-  z-index: 80;
-  top: max(16px, calc(env(safe-area-inset-top) + 12px));
-  left: max(138px, calc(env(safe-area-inset-left) + 126px));
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  background: rgba(23, 23, 24, 0.72);
+.microphone-toggle-button {
   color: #8f8e89;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(16px);
-  cursor: pointer;
 }
 
-.microphone-indicator:hover {
-  border-color: rgba(255, 173, 40, 0.48);
-  background: rgba(56, 48, 34, 0.74);
-  color: var(--accent);
-}
-
-.microphone-indicator:active {
-  transform: scale(0.96);
-}
-
-.microphone-indicator.is-live {
+.microphone-toggle-button.is-live {
   border-color: rgba(255, 173, 40, 0.55);
   background: rgba(81, 58, 22, 0.67);
   color: var(--accent);
@@ -552,7 +518,7 @@ input:focus-visible {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(365px, calc(100vw - 36px));
-  max-height: min(760px, calc(100dvh - 100px));
+  height: min(760px, calc(100dvh - 100px));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.17);
   border-radius: 18px;
@@ -1473,8 +1439,7 @@ input:focus-visible {
     gap: 6px;
   }
 
-  .chrome-toggle-button,
-  .microphone-indicator {
+  .chrome-toggle-button {
     width: 42px;
     height: 42px;
   }
@@ -1483,7 +1448,7 @@ input:focus-visible {
     top: max(58px, calc(env(safe-area-inset-top) + 50px));
     right: max(8px, calc(env(safe-area-inset-right) + 6px));
     width: min(322px, calc(100vw - 16px));
-    max-height: calc(100dvh - 66px);
+    height: calc(100dvh - 66px);
     border-radius: 13px;
   }
 
@@ -1495,11 +1460,6 @@ input:focus-visible {
   .settings-drawer__body {
     gap: 12px;
     padding: 14px 13px;
-  }
-
-  .microphone-indicator {
-    top: max(8px, calc(env(safe-area-inset-top) + 6px));
-    left: max(10px, calc(env(safe-area-inset-left) + 8px));
   }
 
   .prompt-script {
@@ -1657,10 +1617,6 @@ input:focus-visible {
   min-height: 640px;
 }
 
-.app-shell.is-chrome-hidden {
-  display: block;
-}
-
 .reading-stage {
   position: absolute;
   inset: 0;
@@ -1673,7 +1629,7 @@ input:focus-visible {
   left: 0;
   z-index: 20;
   height: var(--chrome-height);
-  padding: 0 174px 0 216px;
+  padding: 0 118px 0 136px;
   align-items: center;
   justify-content: flex-end;
   background: linear-gradient(110deg, rgba(29, 29, 30, 0.78), rgba(20, 20, 21, 0.6));
@@ -1700,19 +1656,13 @@ input:focus-visible {
   gap: 8px;
 }
 
-.chrome-toggle-button,
-.microphone-indicator {
+.chrome-toggle-button {
   width: 44px;
   height: 44px;
   border-color: rgba(255, 255, 255, 0.19);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.11);
   backdrop-filter: blur(20px) saturate(145%);
-}
-
-.microphone-indicator {
-  top: max(14px, calc(env(safe-area-inset-top) + 10px));
-  left: max(132px, calc(env(safe-area-inset-left) + 120px));
 }
 
 .segmented,
@@ -1763,9 +1713,11 @@ input:focus-visible {
 .speed-control output { font-size: 11px; }
 
 .edit-button {
-  width: 124px;
-  gap: 7px;
-  padding: 0 12px;
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  place-items: center;
 }
 
 .settings-drawer {
@@ -1790,6 +1742,35 @@ input:focus-visible {
   border-radius: 999px;
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.11);
   backdrop-filter: blur(24px) saturate(145%);
+}
+
+.fullscreen-floating-button {
+  position: absolute;
+  z-index: 20;
+  right: max(22px, calc(env(safe-area-inset-right) + 16px));
+  bottom: max(22px, calc(env(safe-area-inset-bottom) + 16px));
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.19);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(39, 39, 40, 0.8), rgba(20, 20, 21, 0.68));
+  color: #f7f3ea;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(145%);
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.fullscreen-floating-button:hover {
+  border-color: rgba(255, 173, 40, 0.45);
+  background: rgba(32, 30, 27, 0.86);
+  color: var(--accent);
+}
+
+.fullscreen-floating-button:active {
+  transform: scale(0.96);
 }
 
 .transport-controls {
@@ -1847,7 +1828,7 @@ input:focus-visible {
 
   .topbar {
     height: var(--chrome-height);
-    padding: 0 142px 0 112px;
+    padding: 0 98px 0 64px;
   }
 
   .app-title {
@@ -1864,15 +1845,9 @@ input:focus-visible {
     gap: 5px;
   }
 
-  .chrome-toggle-button,
-  .microphone-indicator {
+  .chrome-toggle-button {
     width: 40px;
     height: 40px;
-  }
-
-  .microphone-indicator {
-    top: max(7px, calc(env(safe-area-inset-top) + 5px));
-    left: max(8px, calc(env(safe-area-inset-left) + 6px));
   }
 
   .segmented,
@@ -1906,6 +1881,13 @@ input:focus-visible {
     width: min(360px, calc(100vw - 28px));
     height: 54px;
     padding: 4px 10px;
+  }
+
+  .fullscreen-floating-button {
+    right: max(12px, calc(env(safe-area-inset-right) + 8px));
+    bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
+    width: 54px;
+    height: 54px;
   }
 
   .transport-controls {

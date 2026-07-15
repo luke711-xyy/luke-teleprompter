@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Eye, EyeOff, Maximize, Mic, MicOff, Minimize, Settings } from "lucide-react";
+import { Maximize, Mic, MicOff, Minimize, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
@@ -68,7 +68,6 @@ export default function App() {
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
-  const [chromeVisible, setChromeVisible] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [microphoneTestOpen, setMicrophoneTestOpen] = useState(false);
@@ -455,7 +454,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className={`app-shell ${chromeVisible ? "" : "is-chrome-hidden"}`}>
+    <div className="app-shell">
       <div className="chrome-actions">
         <button
           className={`chrome-toggle-button ${settingsOpen ? "is-active" : ""}`}
@@ -467,49 +466,33 @@ export default function App() {
           <Settings size={22} />
         </button>
         <button
-          className="chrome-toggle-button"
+          className={`chrome-toggle-button microphone-toggle-button ${microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "is-live" : ""}`}
           type="button"
-          onClick={() => void handleToggleFullscreen()}
-          aria-label={fullscreen ? "退出全屏" : "全屏"}
-          title={fullscreen ? "退出全屏" : "全屏"}
+          onClick={() => setMicrophoneEnabled((value) => !value)}
+          aria-pressed={microphoneEnabled}
+          aria-label={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
+          title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音；点击关闭" : microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
         >
-          {fullscreen ? <Minimize size={23} /> : <Maximize size={23} />}
-        </button>
-        <button
-          className="chrome-toggle-button"
-          type="button"
-          onClick={() => setChromeVisible((value) => !value)}
-          aria-label={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
-          title={chromeVisible ? "进入纯净阅览模式" : "显示上下边栏"}
-        >
-          {chromeVisible ? <EyeOff size={24} /> : <Eye size={24} />}
+          {microphoneEnabled ? <Mic size={21} /> : <MicOff size={21} />}
         </button>
       </div>
 
       <button
-        className={`microphone-indicator ${microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "is-live" : ""}`}
+        className="fullscreen-floating-button"
         type="button"
-        onClick={() => setMicrophoneEnabled((value) => !value)}
-        aria-pressed={microphoneEnabled}
-        aria-label={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
-        title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音；点击关闭" : microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
+        onClick={() => void handleToggleFullscreen()}
+        aria-label={fullscreen ? "退出全屏" : "全屏"}
+        title={fullscreen ? "退出全屏" : "全屏"}
       >
-        {microphoneEnabled ? <Mic size={21} /> : <MicOff size={21} />}
+        {fullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
       </button>
 
       <TopBar
         mode={mode}
         speed={speed}
         chineseCharactersPerLine={chineseCharactersPerLine}
-        skipAheadEnabled={skipAheadEnabled}
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
-        onToggleSkipAhead={() => {
-          setSkipAheadEnabled((value) => !value);
-          hysteresisRef.current.reset();
-          recoveryMatchGateRef.current.reset();
-          localMissStartedAtRef.current = null;
-        }}
         onEdit={() => setEditorOpen(true)}
       />
 
@@ -543,6 +526,7 @@ export default function App() {
         sidePadding={sidePadding}
         focusPosition={focusPosition}
         dimStrength={dimStrength}
+        skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
         onClose={() => setSettingsOpen(false)}
         onFontSizeChange={setFontSize}
@@ -550,6 +534,12 @@ export default function App() {
         onSidePaddingChange={setSidePadding}
         onFocusPositionChange={setFocusPosition}
         onDimStrengthChange={setDimStrength}
+        onToggleSkipAhead={() => {
+          setSkipAheadEnabled((value) => !value);
+          hysteresisRef.current.reset();
+          recoveryMatchGateRef.current.reset();
+          localMissStartedAtRef.current = null;
+        }}
         onToggleMirror={() => setMirrored((value) => !value)}
         onMicrophoneTest={() => {
           setSettingsOpen(false);

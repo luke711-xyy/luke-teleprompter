@@ -166,7 +166,8 @@ describe("microphone test panel", () => {
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
     render(<App />);
     await waitFor(() => expect(speechStartMock).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: "跳读开" }));
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "跳读匹配" }));
 
     now = 2501;
     await act(async () => emitRecognition?.(distantRecognizedPhrase, true));
@@ -250,32 +251,36 @@ describe("microphone test panel", () => {
   it("toggles and persists skip-ahead matching", async () => {
     render(<App />);
 
-    const skipButton = screen.getByRole("button", { name: "跳读开" });
+    expect(screen.queryByRole("button", { name: "跳读匹配" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    const skipButton = screen.getByRole("button", { name: "跳读匹配" });
     expect(skipButton).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(skipButton);
 
-    expect(screen.getByRole("button", { name: "顺序读" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "跳读匹配" })).toHaveAttribute("aria-pressed", "false");
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").skipAheadEnabled).toBe(false);
     });
   });
 
-  it("uses the left microphone icon as the only microphone toggle and keeps speed in steady mode", () => {
+  it("uses the former pure-reading slot for the only microphone toggle and keeps speed in steady mode", () => {
     render(<App />);
 
     const microphoneToggle = screen.getByRole("button", { name: "关闭麦克风" });
-    expect(microphoneToggle).toHaveClass("microphone-indicator");
+    expect(microphoneToggle).toHaveClass("chrome-toggle-button");
+    expect(globalThis.document.querySelector(".microphone-indicator")).not.toBeInTheDocument();
     expect(globalThis.document.querySelector(".microphone-toggle")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /纯净阅览|显示上下边栏/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "匀速滚动速度" })).not.toBeInTheDocument();
 
     fireEvent.click(microphoneToggle);
-    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-indicator");
+    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
 
     fireEvent.click(screen.getByRole("button", { name: "匀速滚动" }));
 
     expect(screen.getByRole("slider", { name: "匀速滚动速度" })).toHaveValue("1");
-    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-indicator");
+    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
   });
 
   it("renders font size as a draggable range with its current pixel value", () => {
@@ -287,26 +292,13 @@ describe("microphone test panel", () => {
     expect(screen.getByText("68px")).toBeInTheDocument();
   });
 
-  it("toggles the pure reading mode chrome", () => {
+  it("keeps a floating fullscreen control at the bottom right and leaves editing as an icon button", () => {
     render(<App />);
 
-    const shell = globalThis.document.querySelector<HTMLElement>(".app-shell");
-    expect(shell).not.toHaveClass("is-chrome-hidden");
-    expect(screen.getByRole("button", { name: "进入纯净阅览模式" })).toBeInTheDocument();
-    expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开设置" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "进入纯净阅览模式" }));
-
-    expect(shell).toHaveClass("is-chrome-hidden");
-    expect(screen.getByRole("button", { name: "显示上下边栏" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全屏" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开设置" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "显示上下边栏" }));
-
-    expect(shell).not.toHaveClass("is-chrome-hidden");
-    expect(screen.getByRole("button", { name: "进入纯净阅览模式" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全屏" })).toHaveClass("fullscreen-floating-button");
+    const editButton = screen.getByRole("button", { name: "编辑文稿" });
+    expect(editButton).toHaveClass("edit-button");
+    expect(editButton).not.toHaveTextContent("编辑文稿");
   });
 
   it("jumps to the first and last sentences from the transport controls", async () => {
