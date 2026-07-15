@@ -107,6 +107,7 @@ describe("microphone test panel", () => {
   it("opens, starts, shows live transcript, and clears results", async () => {
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
     fireEvent.click(screen.getByRole("button", { name: /麦克风测试/ }));
     expect(screen.getByRole("dialog", { name: "麦克风测试" })).toBeInTheDocument();
     expect(screen.getByText("未开始")).toBeInTheDocument();
@@ -174,9 +175,14 @@ describe("microphone test panel", () => {
     clock.mockRestore();
   });
 
-  it("moves and persists the two-line reading position", async () => {
+  it("keeps reading settings in the right-side drawer and persists layout changes", async () => {
     render(<App />);
 
+    expect(screen.queryByRole("slider", { name: "阅读位置" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /麦克风测试/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+
+    expect(screen.getByRole("complementary", { name: "阅读设置" })).toBeInTheDocument();
     const positionSlider = screen.getByRole("slider", { name: "阅读位置" });
     expect(positionSlider).toHaveValue("50");
     expect(positionSlider).toHaveAttribute("min", "20");
@@ -188,10 +194,25 @@ describe("microphone test panel", () => {
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusPosition).toBe(36);
     });
+
+    const lineHeightSlider = screen.getByRole("slider", { name: "行距" });
+    fireEvent.change(lineHeightSlider, { target: { value: "1.7" } });
+    const sidePaddingSlider = screen.getByRole("slider", { name: "左右边距" });
+    fireEvent.change(sidePaddingSlider, { target: { value: "18" } });
+    const prompt = globalThis.document.querySelector<HTMLElement>(".prompt-script");
+    expect(prompt?.style.lineHeight).toBe("1.7");
+    expect(prompt?.style.getPropertyValue("--prompt-side-padding")).toBe("18%");
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}");
+      expect(saved.lineHeight).toBe(1.7);
+      expect(saved.sidePadding).toBe(18);
+    });
   });
 
   it("allows a larger maximum font size", () => {
     render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
 
     const fontSlider = screen.getByRole("slider", { name: "文字大小" });
     expect(fontSlider).toHaveAttribute("min", "44");
@@ -200,6 +221,8 @@ describe("microphone test panel", () => {
 
   it("adjusts and persists dimming strength for non-reading text", async () => {
     render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
 
     const dimSlider = screen.getByRole("slider", { name: "暗显强度" });
     expect(dimSlider).toHaveValue("100");
@@ -245,6 +268,8 @@ describe("microphone test panel", () => {
   it("renders font size as a draggable range with its current pixel value", () => {
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+
     expect(screen.getByRole("slider", { name: "文字大小" })).toHaveValue("68");
     expect(screen.getByText("68px")).toBeInTheDocument();
   });
@@ -256,13 +281,14 @@ describe("microphone test panel", () => {
     expect(shell).not.toHaveClass("is-chrome-hidden");
     expect(screen.getByRole("button", { name: "进入纯净阅览模式" })).toBeInTheDocument();
     expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(globalThis.document.querySelector(".bottom-controls")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开设置" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "进入纯净阅览模式" }));
 
     expect(shell).toHaveClass("is-chrome-hidden");
     expect(screen.getByRole("button", { name: "显示上下边栏" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "全屏" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开设置" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "显示上下边栏" }));
 

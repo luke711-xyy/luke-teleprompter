@@ -1,57 +1,28 @@
 import {
-  CaseSensitive,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  EyeOff,
-  MoveVertical,
   Pause,
   Play,
-  RectangleHorizontal,
 } from "lucide-react";
 import { IconButton } from "./IconButton";
-import {
-  DIM_STRENGTH_MAX,
-  DIM_STRENGTH_MIN,
-  FOCUS_POSITION_MAX,
-  FOCUS_POSITION_MIN,
-  FONT_SIZE_MAX,
-  FONT_SIZE_MIN,
-} from "../lib/settingsBounds";
-
 interface BottomControlsProps {
   playing: boolean;
-  mirrored: boolean;
-  fontSize: number;
-  focusPosition: number;
-  dimStrength: number;
   onFirst: () => void;
   onPrevious: () => void;
   onTogglePlaying: () => void;
   onNext: () => void;
   onLast: () => void;
-  onFontSizeChange: (value: number) => void;
-  onFocusPositionChange: (value: number) => void;
-  onDimStrengthChange: (value: number) => void;
-  onToggleMirror: () => void;
 }
 
 export function BottomControls({
   playing,
-  mirrored,
-  fontSize,
-  focusPosition,
-  dimStrength,
   onFirst,
   onPrevious,
   onTogglePlaying,
   onNext,
   onLast,
-  onFontSizeChange,
-  onFocusPositionChange,
-  onDimStrengthChange,
-  onToggleMirror,
 }: BottomControlsProps) {
   return (
     <footer className="bottom-controls">
@@ -93,74 +64,6 @@ export function BottomControls({
         />
       </div>
 
-      <div className="utility-controls">
-        <label className="position-control" title={`当前阅读位置 ${focusPosition}%`}>
-          <span className="position-control__label">
-            <MoveVertical size={23} strokeWidth={1.7} />
-            阅读位置
-          </span>
-          <span className="position-control__input-row">
-            <input
-              type="range"
-              min={FOCUS_POSITION_MIN}
-              max={FOCUS_POSITION_MAX}
-              step="1"
-              value={focusPosition}
-              onChange={(event) => onFocusPositionChange(Number(event.target.value))}
-              aria-label="阅读位置"
-              aria-valuetext={`${focusPosition}%，${focusPosition < 45 ? "靠上" : focusPosition > 55 ? "靠下" : "居中"}`}
-            />
-            <output>{focusPosition}%</output>
-          </span>
-        </label>
-        <span className="control-divider" />
-        <label className="position-control dim-control" title={`当前暗显强度 ${dimStrength}%`}>
-          <span className="position-control__label">
-            <EyeOff size={23} strokeWidth={1.7} />
-            暗显强度
-          </span>
-          <span className="position-control__input-row">
-            <input
-              type="range"
-              min={DIM_STRENGTH_MIN}
-              max={DIM_STRENGTH_MAX}
-              step="1"
-              value={dimStrength}
-              onChange={(event) => onDimStrengthChange(Number(event.target.value))}
-              aria-label="暗显强度"
-              aria-valuetext={`${dimStrength}%，${dimStrength === 0 ? "关闭暗显" : dimStrength < 40 ? "轻微暗显" : dimStrength > 75 ? "强暗显" : "中等暗显"}`}
-            />
-            <output>{dimStrength}%</output>
-          </span>
-        </label>
-        <span className="control-divider" />
-        <label className="position-control font-control" title={`当前字号 ${fontSize}px`}>
-          <span className="position-control__label">
-            <CaseSensitive size={23} strokeWidth={1.65} />
-            文字大小
-          </span>
-          <span className="position-control__input-row">
-            <input
-              type="range"
-              min={FONT_SIZE_MIN}
-              max={FONT_SIZE_MAX}
-              step="2"
-              value={fontSize}
-              onChange={(event) => onFontSizeChange(Number(event.target.value))}
-              aria-label="文字大小"
-            />
-            <output>{fontSize}px</output>
-          </span>
-        </label>
-        <span className="control-divider" />
-        <IconButton
-          icon={<RectangleHorizontal size={27} strokeWidth={1.7} />}
-          label="镜像（水平）"
-          onClick={onToggleMirror}
-          aria-pressed={mirrored}
-          className={mirrored ? "is-active" : ""}
-        />
-      </div>
     </footer>
   );
 }

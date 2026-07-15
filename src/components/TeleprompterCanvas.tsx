@@ -17,6 +17,8 @@ interface TeleprompterCanvasProps {
   document: ScriptDocument;
   activeTokenIndex: number;
   fontSize: number;
+  lineHeight: number;
+  sidePadding: number;
   focusPosition: number;
   dimStrength: number;
   mirrored: boolean;
@@ -26,7 +28,7 @@ interface TeleprompterCanvasProps {
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
@@ -81,19 +83,19 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       const targetNode = tokenRefs.current.get(targetTokenId);
       if (!targetNode) return 0;
 
-      const lineHeight = fontSize * 1.42;
+      const measuredLineHeight = fontSize * lineHeight;
       const currentTop = targetNode.offsetTop;
-      return Math.max(0, currentTop + lineHeight * 0.03);
-    }, [fontSize]);
+      return Math.max(0, currentTop + measuredLineHeight * 0.03);
+    }, [fontSize, lineHeight]);
 
     const updateFocusedLineTokens = useCallback(() => {
       const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
-      const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * 1.42);
+      const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * lineHeight);
       setFocusedLineTokenIds((current) => {
         if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
         return new Set(nextIds);
       });
-    }, [activeTokenIndex, fontSize]);
+    }, [activeTokenIndex, fontSize, lineHeight]);
 
     const updateCuePlacements = useCallback((focusedIds = focusedLineTokenIds) => {
       const cues = document.tokens.filter((token) => token.kind === "cue");
@@ -131,13 +133,13 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
       const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
-      const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, fontSize * 1.42);
+      const measuredLineHeight = fontSize * lineHeight;
+      const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, measuredLineHeight);
       const token = tokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
       if (!viewport || !token) return;
 
-      const lineHeight = fontSize * 1.42;
       const nextLineToken = [...tokenRefs.current.entries()]
-        .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + lineHeight * 0.5)
+        .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + measuredLineHeight * 0.5)
         .sort(([left], [right]) => left - right)[0]?.[1];
       const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
       const target = calculateTwoLineScrollTarget({
@@ -145,7 +147,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         currentHeight: token.offsetHeight || fontSize,
         nextTop: nextLineToken?.offsetTop,
         nextHeight: nextLineToken?.offsetHeight,
-        lineHeight,
+        lineHeight: measuredLineHeight,
         viewportHeight: viewport.clientHeight,
         focusRatio: focusPosition / 100,
         maxScroll,
@@ -195,7 +197,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       setScrollTop: (value: number) => {
         if (viewportRef.current) viewportRef.current.scrollTop = value;
       },
-      getLineHeight: () => fontSize * 1.42,
+      getLineHeight: () => fontSize * lineHeight,
       getMaxScroll: () => {
         const viewport = viewportRef.current;
         return viewport ? Math.max(0, viewport.scrollHeight - viewport.clientHeight) : 0;
@@ -216,7 +218,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         });
         return nearest;
       },
-    }), [activeTokenIndex, focusPosition, fontSize]);
+    }), [activeTokenIndex, focusPosition, fontSize, lineHeight]);
 
     useEffect(() => {
       if (mode === "follow") scrollToToken(activeTokenIndex);
@@ -238,7 +240,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       });
       return () => window.cancelAnimationFrame(frame);
-    }, [chineseCharactersPerLine, fontSize, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, fontSize, lineHeight, sidePadding, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
@@ -262,7 +264,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         observer.disconnect();
         window.removeEventListener("resize", updateMeasurements);
       };
-    }, [chineseCharactersPerLine, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, updateCuePlacements, updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">
@@ -276,7 +278,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
             if (!programmaticScroll.current) onManualScroll?.();
           }}
         >
-          <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px` }}>
+          <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px`, lineHeight, "--prompt-side-padding": `${sidePadding}%` } as CSSProperties}>
             {cuePlacements.length > 0 && (
               <aside className="cue-overlay-layer" aria-label="动作提示">
                 {cuePlacements.map((cue) => (

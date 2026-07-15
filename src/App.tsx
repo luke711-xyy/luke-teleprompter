@@ -1,11 +1,12 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Eye, EyeOff, Maximize, Mic, MicOff, Minimize } from "lucide-react";
+import { Eye, EyeOff, Maximize, Mic, MicOff, Minimize, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
 import { MicrophoneTestModal } from "./components/MicrophoneTestModal";
 import { ModelSetup } from "./components/ModelSetup";
 import { MobileOrientationGate } from "./components/MobileOrientationGate";
+import { SettingsDrawer } from "./components/SettingsDrawer";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
@@ -56,6 +57,8 @@ export default function App() {
   const [mode, setMode] = useState<ScrollMode>(initialSettings.mode);
   const [speed, setSpeed] = useState(initialSettings.speed);
   const [fontSize, setFontSize] = useState(initialSettings.fontSize);
+  const [lineHeight, setLineHeight] = useState(initialSettings.lineHeight);
+  const [sidePadding, setSidePadding] = useState(initialSettings.sidePadding);
   const [focusPosition, setFocusPosition] = useState(initialSettings.focusPosition);
   const [dimStrength, setDimStrength] = useState(initialSettings.dimStrength);
   const [skipAheadEnabled, setSkipAheadEnabled] = useState(initialSettings.skipAheadEnabled);
@@ -66,6 +69,7 @@ export default function App() {
   const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [microphoneTestOpen, setMicrophoneTestOpen] = useState(false);
   const [fileName, setFileName] = useState<string>();
@@ -152,10 +156,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,7 +348,7 @@ export default function App() {
         const characterCapacity = Math.max(1, chineseCharactersPerLine);
         const charactersPerMinute = characterCapacity * 8 * speed;
         const linesPerMinute = charactersPerMinute / characterCapacity;
-        const pixelsPerTick = (((fontSize * 1.42) * linesPerMinute) / 60) / 30;
+        const pixelsPerTick = (((fontSize * lineHeight) * linesPerMinute) / 60) / 30;
         const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
         if (Math.abs(viewport.scrollTop - steadyPositionRef.current) > 2) {
           steadyPositionRef.current = viewport.scrollTop;
@@ -366,7 +370,7 @@ export default function App() {
       }
     }, 1000 / 30);
     return () => window.clearInterval(interval);
-  }, [chineseCharactersPerLine, fontSize, mode, playing, speed]);
+  }, [chineseCharactersPerLine, fontSize, lineHeight, mode, playing, speed]);
 
   const moveToToken = useCallback((index: number) => {
     const safeIndex = Math.min(Math.max(0, index), Math.max(0, document.tokens.length - 1));
@@ -454,6 +458,15 @@ export default function App() {
     <div className={`app-shell ${chromeVisible ? "" : "is-chrome-hidden"}`}>
       <div className="chrome-actions">
         <button
+          className={`chrome-toggle-button ${settingsOpen ? "is-active" : ""}`}
+          type="button"
+          onClick={() => setSettingsOpen((value) => !value)}
+          aria-label={settingsOpen ? "关闭设置" : "打开设置"}
+          title={settingsOpen ? "关闭设置" : "打开设置"}
+        >
+          <Settings size={22} />
+        </button>
+        <button
           className="chrome-toggle-button"
           type="button"
           onClick={() => void handleToggleFullscreen()}
@@ -498,7 +511,6 @@ export default function App() {
           localMissStartedAtRef.current = null;
         }}
         onEdit={() => setEditorOpen(true)}
-        onMicrophoneTest={handleOpenMicrophoneTest}
       />
 
       <TeleprompterCanvas
@@ -506,6 +518,8 @@ export default function App() {
         document={document}
         activeTokenIndex={activeTokenIndex}
         fontSize={fontSize}
+        lineHeight={lineHeight}
+        sidePadding={sidePadding}
         focusPosition={focusPosition}
         dimStrength={dimStrength}
         mirrored={mirrored}
@@ -515,19 +529,32 @@ export default function App() {
 
       <BottomControls
         playing={playing}
-        mirrored={mirrored}
-        fontSize={fontSize}
-        focusPosition={focusPosition}
-        dimStrength={dimStrength}
         onFirst={() => moveToToken(firstSentenceToken(document))}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
         onTogglePlaying={() => setPlaying((value) => !value)}
         onNext={() => moveToToken(nextSentenceToken(document, activeTokenIndex))}
         onLast={() => moveToToken(lastSentenceToken(document))}
+      />
+
+      <SettingsDrawer
+        open={settingsOpen}
+        fontSize={fontSize}
+        lineHeight={lineHeight}
+        sidePadding={sidePadding}
+        focusPosition={focusPosition}
+        dimStrength={dimStrength}
+        mirrored={mirrored}
+        onClose={() => setSettingsOpen(false)}
         onFontSizeChange={setFontSize}
+        onLineHeightChange={setLineHeight}
+        onSidePaddingChange={setSidePadding}
         onFocusPositionChange={setFocusPosition}
         onDimStrengthChange={setDimStrength}
         onToggleMirror={() => setMirrored((value) => !value)}
+        onMicrophoneTest={() => {
+          setSettingsOpen(false);
+          handleOpenMicrophoneTest();
+        }}
       />
 
       <div className="local-status" title={statusMessage || undefined}>

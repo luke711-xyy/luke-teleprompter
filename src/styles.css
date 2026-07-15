@@ -102,7 +102,7 @@ input:focus-visible {
   position: fixed;
   z-index: 80;
   top: max(16px, calc(env(safe-area-inset-top) + 12px));
-  left: max(18px, calc(env(safe-area-inset-left) + 14px));
+  left: max(138px, calc(env(safe-area-inset-left) + 126px));
   display: grid;
   width: 48px;
   height: 48px;
@@ -133,6 +133,12 @@ input:focus-visible {
   transform: scale(0.96);
 }
 
+.chrome-toggle-button.is-active {
+  border-color: rgba(255, 173, 40, 0.56);
+  background: rgba(255, 173, 40, 0.13);
+  color: var(--accent);
+}
+
 .topbar {
   position: relative;
   z-index: 20;
@@ -147,16 +153,20 @@ input:focus-visible {
 
 .app-title {
   position: absolute;
-  top: 18px;
-  left: 50%;
+  top: 15px;
+  left: max(20px, calc(env(safe-area-inset-left) + 16px));
   margin: 0;
-  color: #f4f2ec;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  transform: translateX(-50%);
+  color: #d5d1c8;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  line-height: 1.06;
+  text-align: left;
+  text-transform: lowercase;
   -webkit-app-region: drag;
 }
+
+.app-title span { display: block; }
 
 .topbar__controls {
   display: flex;
@@ -369,12 +379,15 @@ input:focus-visible {
 }
 
 .prompt-script {
+  --prompt-side-padding: 9%;
+  --prompt-block-start: 50vh;
+  --prompt-block-end: 60vh;
   position: relative;
   width: 100%;
   max-width: 1586px;
   min-height: 100%;
   margin: 0 auto;
-  padding: 50vh clamp(72px, 9vw, 150px) 60vh;
+  padding: var(--prompt-block-start) var(--prompt-side-padding) var(--prompt-block-end);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
   font-weight: 500;
@@ -490,9 +503,9 @@ input:focus-visible {
 .bottom-controls {
   position: relative;
   z-index: 20;
-  display: grid;
-  grid-template-columns: 428px minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: center;
   padding: 0 7.4vw;
   background: #171718;
   border-top: 1px solid var(--line);
@@ -519,6 +532,137 @@ input:focus-visible {
   justify-content: flex-end;
   gap: clamp(10px, 1.5vw, 20px);
   transform: translateX(16px);
+}
+
+.settings-drawer {
+  position: fixed;
+  z-index: 75;
+  top: max(78px, calc(env(safe-area-inset-top) + 70px));
+  right: max(18px, calc(env(safe-area-inset-right) + 14px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(365px, calc(100vw - 36px));
+  max-height: min(760px, calc(100dvh - 100px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 18px;
+  background: rgba(24, 24, 25, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(22px);
+  animation: drawer-in 160ms ease-out;
+}
+
+.settings-drawer__header,
+.settings-drawer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 18px;
+}
+
+.settings-drawer__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f2efe7;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.settings-drawer__header > span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-drawer__header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d8d4cc;
+  cursor: pointer;
+}
+
+.settings-drawer__body {
+  display: grid;
+  gap: 17px;
+  padding: 20px 18px 22px;
+  overflow: auto;
+}
+
+.drawer-setting {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-setting__heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #dedbd3;
+  font-size: 14px;
+}
+
+.drawer-setting__heading > span {
+  display: grid;
+  color: #a7a39b;
+}
+
+.drawer-setting output {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-setting input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: ew-resize;
+}
+
+.drawer-toggle,
+.drawer-microphone-test {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e7e3db;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.drawer-toggle span {
+  margin-left: auto;
+  color: #aaa69e;
+  font-size: 12px;
+}
+
+.drawer-toggle.is-active {
+  border-color: rgba(255, 173, 40, 0.46);
+  background: rgba(255, 173, 40, 0.1);
+  color: var(--accent);
+}
+
+.drawer-toggle.is-active span { color: var(--accent); }
+
+.settings-drawer__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer-microphone-test {
+  justify-content: center;
+  border-color: rgba(255, 173, 40, 0.36);
+  color: #ffd37d;
 }
 
 .icon-button {
@@ -1138,6 +1282,11 @@ input:focus-visible {
   50% { box-shadow: 0 0 0 11px rgba(255, 173, 40, 0.14), 0 12px 28px rgba(0, 0, 0, 0.28); }
 }
 
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 @media (max-width: 1180px) {
   :root { --chrome-height: 126px; }
 
@@ -1229,13 +1378,18 @@ input:focus-visible {
   }
 
   .app-title {
-    display: none;
+    top: 10px;
+    left: max(58px, calc(env(safe-area-inset-left) + 54px));
+    font-size: 9px;
+    letter-spacing: 0.09em;
   }
 
   .topbar__controls {
     display: flex;
     gap: 7px;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-right: 146px;
+    padding-left: 116px;
   }
 
   .segmented {
@@ -1315,6 +1469,24 @@ input:focus-visible {
     height: 42px;
   }
 
+  .settings-drawer {
+    top: max(58px, calc(env(safe-area-inset-top) + 50px));
+    right: max(8px, calc(env(safe-area-inset-right) + 6px));
+    width: min(322px, calc(100vw - 16px));
+    max-height: calc(100dvh - 66px);
+    border-radius: 13px;
+  }
+
+  .settings-drawer__header,
+  .settings-drawer__footer {
+    padding: 10px 13px;
+  }
+
+  .settings-drawer__body {
+    gap: 12px;
+    padding: 14px 13px;
+  }
+
   .microphone-indicator {
     top: max(8px, calc(env(safe-area-inset-top) + 6px));
     left: max(10px, calc(env(safe-area-inset-left) + 8px));
@@ -1322,13 +1494,11 @@ input:focus-visible {
 
   .prompt-script {
     max-width: none;
-    padding: 42dvh max(42px, calc(env(safe-area-inset-right) + 32px)) 48dvh max(56px, calc(env(safe-area-inset-left) + 48px));
-    line-height: 1.36;
+    --prompt-block-start: 42dvh;
+    --prompt-block-end: 48dvh;
   }
 
   .bottom-controls {
-    grid-template-columns: 312px minmax(0, 1fr);
-    gap: 10px;
     padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   }
 
@@ -1421,8 +1591,7 @@ input:focus-visible {
   }
 
   .bottom-controls {
-    grid-template-columns: 270px minmax(0, 1fr);
-    gap: 6px;
+    padding: 0 8px;
   }
 
   .transport-controls {

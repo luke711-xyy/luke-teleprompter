@@ -6,6 +6,10 @@ import {
   FOCUS_POSITION_MIN,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  LINE_HEIGHT_MAX,
+  LINE_HEIGHT_MIN,
+  SIDE_PADDING_MAX,
+  SIDE_PADDING_MIN,
 } from "./settingsBounds";
 
 const KEY = "luke-teleprompter:settings:v1";
@@ -17,6 +21,8 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   mode: "follow",
   speed: 1,
   fontSize: 68,
+  lineHeight: 1.42,
+  sidePadding: 9,
   focusPosition: 50,
   dimStrength: 100,
   skipAheadEnabled: true,
@@ -38,10 +44,16 @@ export function loadSettings(): PersistedSettings {
     const dimStrength = typeof parsed.dimStrength === "number"
       ? Math.min(DIM_STRENGTH_MAX, Math.max(DIM_STRENGTH_MIN, parsed.dimStrength))
       : DEFAULT_SETTINGS.dimStrength;
+    const lineHeight = typeof parsed.lineHeight === "number"
+      ? Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, parsed.lineHeight))
+      : DEFAULT_SETTINGS.lineHeight;
+    const sidePadding = typeof parsed.sidePadding === "number"
+      ? Math.min(SIDE_PADDING_MAX, Math.max(SIDE_PADDING_MIN, parsed.sidePadding))
+      : DEFAULT_SETTINGS.sidePadding;
     const skipAheadEnabled = typeof parsed.skipAheadEnabled === "boolean"
       ? parsed.skipAheadEnabled
       : DEFAULT_SETTINGS.skipAheadEnabled;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize, dimStrength, skipAheadEnabled };
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled };
   } catch {
     return DEFAULT_SETTINGS;
   }

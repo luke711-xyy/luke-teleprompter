@@ -65,6 +65,8 @@ export interface PersistedSettings {
   mode: ScrollMode;
   speed: number;
   fontSize: number;
+  lineHeight: number;
+  sidePadding: number;
   focusPosition: number;
   dimStrength: number;
   skipAheadEnabled: boolean;

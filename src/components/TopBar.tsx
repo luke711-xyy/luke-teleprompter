@@ -1,4 +1,4 @@
-import { Mic, MicOff, Pencil, Radio, Shuffle } from "lucide-react";
+import { Mic, MicOff, Pencil, Shuffle } from "lucide-react";
 import type { ScrollMode } from "../lib/types";
 
 interface TopBarProps {
@@ -12,7 +12,6 @@ interface TopBarProps {
   onToggleMicrophone: () => void;
   onToggleSkipAhead: () => void;
   onEdit: () => void;
-  onMicrophoneTest: () => void;
 }
 
 export function TopBar({
@@ -26,13 +25,12 @@ export function TopBar({
   onToggleMicrophone,
   onToggleSkipAhead,
   onEdit,
-  onMicrophoneTest,
 }: TopBarProps) {
   const charactersPerMinute = Math.round(Math.max(1, chineseCharactersPerLine) * 8 * speed);
 
   return (
     <header className="topbar">
-      <h1 className="app-title">提词器</h1>
+      <h1 className="app-title"><span>luke</span><span>teleprompter</span></h1>
       <div className="topbar__controls">
         <div className="segmented" role="group" aria-label="滚动模式">
           <button
@@ -91,11 +89,6 @@ export function TopBar({
             <output>{charactersPerMinute} 字/分</output>
           </label>
         )}
-
-        <button className="microphone-test-button" onClick={onMicrophoneTest}>
-          <Radio size={19} />
-          <span>麦克风测试</span>
-        </button>
 
         <button className="edit-button" onClick={onEdit}>
           <Pencil size={19} />
