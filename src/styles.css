@@ -1291,8 +1291,8 @@ input:focus-visible {
   }
 
   .prompt-script {
-    padding-right: 72px;
-    padding-left: 92px;
+    padding-right: var(--prompt-side-padding);
+    padding-left: var(--prompt-side-padding);
   }
 
   .bottom-controls {
