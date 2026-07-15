@@ -98,7 +98,11 @@ export function SettingsDrawer({
   if (!open) return null;
 
   return (
-    <aside className="settings-drawer" aria-label="阅读设置">
+    <aside
+      className="settings-drawer liquid-glass liquid-glass--drawer"
+      aria-label="阅读设置"
+      data-config='{"blurAmount":0.22,"refraction":0.3,"chromAberration":0.02,"edgeHighlight":0.18,"specular":0.26,"fresnel":0.82,"cornerRadius":18,"zRadius":22,"opacity":0.93,"shadowOpacity":0.3,"shadowSpread":14}'
+    >
       <header className="settings-drawer__header">
         <span><SlidersHorizontal size={20} /> 阅读设置</span>
         <button type="button" onClick={onClose} aria-label="关闭设置" title="关闭设置"><X size={20} /></button>

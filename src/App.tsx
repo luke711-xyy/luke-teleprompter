@@ -3,6 +3,7 @@ import { Maximize, Mic, MicOff, Minimize, Pencil, Settings } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomControls } from "./components/BottomControls";
 import { EditorModal } from "./components/EditorModal";
+import { LiquidGlassController } from "./components/LiquidGlassController";
 import { MicrophoneTestModal } from "./components/MicrophoneTestModal";
 import { ModelSetup } from "./components/ModelSetup";
 import { MobileOrientationGate } from "./components/MobileOrientationGate";
@@ -81,6 +82,7 @@ export default function App() {
   const [microphoneTestLevel, setMicrophoneTestLevel] = useState<RecognitionLevel>({ level: 0, isSpeech: false });
   const [microphoneTestResults, setMicrophoneTestResults] = useState<RecognitionResult[]>([]);
   const canvasRef = useRef<TeleprompterCanvasHandle>(null);
+  const liquidGlassRootRef = useRef<HTMLDivElement>(null);
   const currentSearchableRef = useRef(0);
   const steadyPositionRef = useRef(0);
   const hysteresisRef = useRef(new MatchHysteresis());
@@ -454,8 +456,11 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
-      <div className="chrome-actions">
+    <div className="app-shell liquid-glass-root" ref={liquidGlassRootRef}>
+      <div
+        className="chrome-actions liquid-glass liquid-glass--actions"
+        data-config='{"blurAmount":0.16,"refraction":0.3,"chromAberration":0.02,"edgeHighlight":0.2,"specular":0.3,"fresnel":0.84,"cornerRadius":30,"zRadius":22,"opacity":0.94,"shadowOpacity":0.22,"shadowSpread":10}'
+      >
         <button
           className="chrome-toggle-button edit-button"
           type="button"
@@ -487,8 +492,9 @@ export default function App() {
       </div>
 
       <button
-        className="fullscreen-floating-button"
+        className="fullscreen-floating-button liquid-glass liquid-glass--button"
         type="button"
+        data-config='{"blurAmount":0.18,"refraction":0.34,"chromAberration":0.026,"edgeHighlight":0.22,"specular":0.34,"fresnel":0.9,"cornerRadius":34,"zRadius":24,"opacity":0.95,"shadowOpacity":0.26,"shadowSpread":12,"button":true}'
         onClick={() => void handleToggleFullscreen()}
         aria-label={fullscreen ? "退出全屏" : "全屏"}
         title={fullscreen ? "退出全屏" : "全屏"}
@@ -500,6 +506,7 @@ export default function App() {
         mode={mode}
         speed={speed}
         chineseCharactersPerLine={chineseCharactersPerLine}
+        className="liquid-glass liquid-glass--topbar"
         onModeChange={handleModeChange}
         onSpeedChange={setSpeed}
       />
@@ -519,6 +526,7 @@ export default function App() {
       />
 
       <BottomControls
+        className="liquid-glass liquid-glass--transport"
         playing={playing}
         onFirst={() => moveToToken(firstSentenceToken(document))}
         onPrevious={() => moveToToken(previousSentenceToken(document, activeTokenIndex))}
@@ -554,6 +562,8 @@ export default function App() {
           handleOpenMicrophoneTest();
         }}
       />
+
+      <LiquidGlassController rootRef={liquidGlassRootRef} revision={settingsOpen ? 1 : 0} />
 
       <EditorModal
         open={editorOpen}

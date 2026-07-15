@@ -267,7 +267,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, updateCuePlacements, updateFocusedLineTokens]);
 
     return (
-      <main className="reading-stage">
+      <main className="reading-stage" data-dynamic>
         <div className="focus-band" style={{ top: `${focusPosition}%` }} aria-hidden="true">
           <span className="focus-marker" />
         </div>
