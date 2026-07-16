@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstTokenOnVisualLine, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "./visualLines";
+import { firstTokenOnVisualLine, focusedTokenIdsInFocusBand, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "./visualLines";
 
 describe("focusedTwoLineTokenIds", () => {
   it("selects the active visual line and the following visual line", () => {
@@ -55,5 +55,17 @@ describe("focusedTwoLineTokenIds", () => {
 
     expect(firstTokenOnVisualLine(measurements, 3, 72)).toBe(1);
     expect(firstTokenOnVisualLine(measurements, 5, 72)).toBe(4);
+  });
+
+  it("switches highlights when a visual line center crosses the focus-band edge", () => {
+    const measurements = [
+      { id: 1, top: 100 },
+      { id: 2, top: 172 },
+      { id: 3, top: 244 },
+      { id: 4, top: 316 },
+    ];
+
+    expect(focusedTokenIdsInFocusBand(measurements, 72, 100, 60, 204)).toEqual([2, 3]);
+    expect(focusedTokenIdsInFocusBand(measurements, 72, 149, 60, 204)).toEqual([3, 4]);
   });
 });

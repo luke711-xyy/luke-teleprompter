@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import type { CSSProperties } from "react";
 import { calculateTwoLineScrollTarget } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
-import { firstTokenOnVisualLine, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
+import { firstTokenOnVisualLine, focusedTokenIdsInFocusBand, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -31,6 +31,7 @@ interface TeleprompterCanvasProps {
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
   function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
+    const focusBandRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
     const cueAnchorRefs = useRef(new Map<number, HTMLSpanElement>());
@@ -91,11 +92,29 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     const updateFocusedLineTokens = useCallback(() => {
       const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
-      const nextIds = focusedTwoLineTokenIds(measurements, activeTokenIndex, fontSize * lineHeight);
+      const viewport = viewportRef.current;
+      const focusBand = focusBandRef.current;
+      const lineHeightInPixels = fontSize * lineHeight;
+      const viewportRect = viewport?.getBoundingClientRect();
+      const bandRect = focusBand?.getBoundingClientRect();
+      const inBand = viewport && viewportRect && bandRect
+        ? focusedTokenIdsInFocusBand(
+          measurements,
+          lineHeightInPixels,
+          viewport.scrollTop,
+          bandRect.top - viewportRect.top,
+          bandRect.bottom - viewportRect.top,
+        )
+        : [];
+      const nextIds = inBand.length > 0
+        ? inBand
+        : focusedTwoLineTokenIds(measurements, activeTokenIndex, lineHeightInPixels);
+      const nextSet = new Set(nextIds);
       setFocusedLineTokenIds((current) => {
         if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
-        return new Set(nextIds);
+        return nextSet;
       });
+      return nextSet;
     }, [activeTokenIndex, fontSize, lineHeight]);
 
     const selectTokenLine = useCallback((tokenIndex: number) => {
@@ -201,7 +220,12 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       scrollToToken,
       getScrollTop: () => viewportRef.current?.scrollTop ?? 0,
       setScrollTop: (value: number) => {
-        if (viewportRef.current) viewportRef.current.scrollTop = value;
+        if (!viewportRef.current) return;
+        programmaticScroll.current = true;
+        viewportRef.current.scrollTop = value;
+        window.setTimeout(() => {
+          programmaticScroll.current = false;
+        }, 30);
       },
       getLineHeight: () => fontSize * lineHeight,
       getMaxScroll: () => {
@@ -241,8 +265,8 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     useLayoutEffect(() => {
       const frame = window.requestAnimationFrame(() => {
-        updateFocusedLineTokens();
-        updateCuePlacements();
+        const focusedIds = updateFocusedLineTokens();
+        updateCuePlacements(focusedIds);
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       });
       return () => window.cancelAnimationFrame(frame);
@@ -253,8 +277,8 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       if (!scriptNode) return;
 
       const updateMeasurements = () => {
-        updateFocusedLineTokens();
-        updateCuePlacements();
+        const focusedIds = updateFocusedLineTokens();
+        updateCuePlacements(focusedIds);
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       };
 
@@ -274,14 +298,19 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     return (
       <main className="reading-stage">
-        <div className="focus-band" style={{ top: `${focusPosition}%` }} aria-hidden="true">
+        <div className="focus-band" ref={focusBandRef} style={{ top: `${focusPosition}%` }} aria-hidden="true">
           <span className="focus-marker" />
         </div>
         <div
           className="prompt-viewport"
           ref={viewportRef}
           onScroll={() => {
-            if (!programmaticScroll.current) onManualScroll?.();
+            if (programmaticScroll.current) {
+              const focusedIds = updateFocusedLineTokens();
+              updateCuePlacements(focusedIds);
+            } else {
+              onManualScroll?.();
+            }
           }}
         >
           <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px`, lineHeight, "--prompt-side-padding": `${sidePadding}%` } as CSSProperties}>

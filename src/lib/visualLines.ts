@@ -39,6 +39,22 @@ export function firstTokenOnVisualLine(
   return lineTokenIds(measurements, token.top, tolerance)[0] ?? tokenIndex;
 }
 
+export function focusedTokenIdsInFocusBand(
+  measurements: TokenLineMeasurement[],
+  lineHeight: number,
+  scrollTop: number,
+  bandTop: number,
+  bandBottom: number,
+): number[] {
+  const centerOffset = lineHeight / 2;
+  return measurements
+    .filter((measurement) => {
+      const center = measurement.top + centerOffset - scrollTop;
+      return center >= bandTop && center <= bandBottom;
+    })
+    .map((measurement) => measurement.id);
+}
+
 function leadingLineTop(
   measurements: TokenLineMeasurement[],
   activeTokenIndex: number,

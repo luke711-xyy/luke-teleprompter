@@ -357,7 +357,7 @@ export default function App() {
         }
         const next = Math.min(maxScroll, steadyPositionRef.current + pixelsPerTick);
         steadyPositionRef.current = next;
-        viewport.scrollTop = next;
+        canvasRef.current?.setScrollTop(next);
         if (maxScroll > 0 && next >= maxScroll) {
           setPlaying(false);
           return;
