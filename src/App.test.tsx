@@ -279,7 +279,9 @@ describe("microphone test panel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "匀速滚动" }));
 
-    expect(screen.getByRole("slider", { name: "匀速滚动速度" })).toHaveValue("1");
+    const speedSlider = screen.getByRole("slider", { name: "匀速滚动速度" });
+    expect(speedSlider).toHaveValue("1");
+    expect(speedSlider).toHaveAttribute("max", "5");
     expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
   });
 

@@ -44,7 +44,7 @@ export function TopBar({
             <input
               type="range"
               min="0.5"
-              max="2"
+              max="5"
               step="0.1"
               value={speed}
               onChange={(event) => onSpeedChange(Number(event.target.value))}
