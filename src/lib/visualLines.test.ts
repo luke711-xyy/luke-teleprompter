@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { firstTokenOnVisualLine, focusedTokenIdsInFocusBand, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "./visualLines";
+import {
+  firstTokenOnVisualLine,
+  focusedTokenIdsFromVisualLines,
+  focusedTokenIdsInFocusBand,
+  focusedTwoLineTokenIds,
+  groupMeasurementsIntoVisualLines,
+  leadingTwoLineTokenId,
+} from "./visualLines";
 
 describe("focusedTwoLineTokenIds", () => {
   it("selects the active visual line and the following visual line", () => {
@@ -67,5 +74,25 @@ describe("focusedTwoLineTokenIds", () => {
 
     expect(focusedTokenIdsInFocusBand(measurements, 72, 100, 60, 204)).toEqual([2, 3]);
     expect(focusedTokenIdsInFocusBand(measurements, 72, 149, 60, 204)).toEqual([3, 4]);
+  });
+
+  it("uses cached visual lines to find focus-band tokens without revisiting every token", () => {
+    const lines = groupMeasurementsIntoVisualLines([
+      { id: 1, top: 100 },
+      { id: 2, top: 100 },
+      { id: 3, top: 172 },
+      { id: 4, top: 172 },
+      { id: 5, top: 244 },
+      { id: 6, top: 244 },
+      { id: 7, top: 316 },
+    ], 72);
+
+    expect(lines).toEqual([
+      { top: 100, tokenIds: [1, 2] },
+      { top: 172, tokenIds: [3, 4] },
+      { top: 244, tokenIds: [5, 6] },
+      { top: 316, tokenIds: [7] },
+    ]);
+    expect(focusedTokenIdsFromVisualLines(lines, 72, 149, 60, 204)).toEqual([5, 6, 7]);
   });
 });

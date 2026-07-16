@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateTwoLineScrollTarget } from "./scroll";
+import { calculateTwoLineScrollTarget, shouldResnapAfterScroll } from "./scroll";
 
 describe("two-line prompt placement", () => {
   it("centers the actual current and following visual lines", () => {
@@ -61,5 +61,12 @@ describe("two-line prompt placement", () => {
 
     expect(calculateTwoLineScrollTarget({ ...geometry, focusRatio: 0.3 })).toBe(624);
     expect(calculateTwoLineScrollTarget({ ...geometry, focusRatio: 0.7 })).toBe(384);
+  });
+
+  it("never schedules a manual resnap for steady-scroll events", () => {
+    expect(shouldResnapAfterScroll("steady", false)).toBe(false);
+    expect(shouldResnapAfterScroll("steady", true)).toBe(false);
+    expect(shouldResnapAfterScroll("follow", true)).toBe(false);
+    expect(shouldResnapAfterScroll("follow", false)).toBe(true);
   });
 });

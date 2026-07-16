@@ -1,8 +1,15 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { calculateTwoLineScrollTarget } from "../lib/scroll";
+import { calculateTwoLineScrollTarget, shouldResnapAfterScroll } from "../lib/scroll";
 import type { ScriptDocument, ScrollMode } from "../lib/types";
-import { firstTokenOnVisualLine, focusedTokenIdsInFocusBand, focusedTwoLineTokenIds, leadingTwoLineTokenId } from "../lib/visualLines";
+import {
+  firstTokenOnVisualLine,
+  focusedTokenIdsFromVisualLines,
+  focusedTwoLineTokenIds,
+  groupMeasurementsIntoVisualLines,
+  leadingTwoLineTokenId,
+} from "../lib/visualLines";
+import type { TokenLineMeasurement, VisualLine } from "../lib/visualLines";
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -38,8 +45,15 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     const programmaticScroll = useRef(false);
     const scrollFrameRef = useRef<number | null>(null);
     const scrollUnlockTimerRef = useRef<number | null>(null);
+    const layoutFrameRef = useRef<number | null>(null);
+    const tokenMeasurementsRef = useRef<TokenLineMeasurement[]>([]);
+    const visualLinesRef = useRef<VisualLine[]>([]);
+    const focusBandBoundsRef = useRef({ top: 0, bottom: 0 });
+    const activeTokenIndexRef = useRef(activeTokenIndex);
     const [focusedLineTokenIds, setFocusedLineTokenIds] = useState<Set<number>>(() => new Set([activeTokenIndex]));
-    const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; left: number; isActive: boolean }>>([]);
+    const [cuePlacements, setCuePlacements] = useState<Array<{ id: number; text: string; top: number; left: number; targetTokenId: number }>>([]);
+
+    activeTokenIndexRef.current = activeTokenIndex;
 
     const promptClass = useMemo(
       () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
@@ -78,8 +92,8 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       const nextSpokenToken = document.tokens
         .slice(cueTokenIndex + 1)
         .find((token) => token.normalized);
-      return nextSpokenToken?.id ?? activeTokenIndex;
-    }, [activeTokenIndex, document.tokens]);
+      return nextSpokenToken?.id ?? activeTokenIndexRef.current;
+    }, [document.tokens]);
 
     const cueVerticalCenter = useCallback((targetTokenId: number) => {
       const targetNode = tokenRefs.current.get(targetTokenId);
@@ -90,39 +104,55 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       return Math.max(0, currentTop + measuredLineHeight * 0.03);
     }, [fontSize, lineHeight]);
 
-    const updateFocusedLineTokens = useCallback(() => {
+    const rebuildVisualLineCache = useCallback(() => {
       const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
+      tokenMeasurementsRef.current = measurements;
+      visualLinesRef.current = groupMeasurementsIntoVisualLines(measurements, fontSize * lineHeight);
+
       const viewport = viewportRef.current;
       const focusBand = focusBandRef.current;
-      const lineHeightInPixels = fontSize * lineHeight;
       const viewportRect = viewport?.getBoundingClientRect();
       const bandRect = focusBand?.getBoundingClientRect();
-      const inBand = viewport && viewportRect && bandRect
-        ? focusedTokenIdsInFocusBand(
-          measurements,
+      if (viewportRect && bandRect) {
+        focusBandBoundsRef.current = {
+          top: bandRect.top - viewportRect.top,
+          bottom: bandRect.bottom - viewportRect.top,
+        };
+      }
+    }, [fontSize, lineHeight]);
+
+    const updateFocusedLineTokens = useCallback(() => {
+      const viewport = viewportRef.current;
+      const lineHeightInPixels = fontSize * lineHeight;
+      const { top: bandTop, bottom: bandBottom } = focusBandBoundsRef.current;
+      const inBand = viewport
+        ? focusedTokenIdsFromVisualLines(
+          visualLinesRef.current,
           lineHeightInPixels,
           viewport.scrollTop,
-          bandRect.top - viewportRect.top,
-          bandRect.bottom - viewportRect.top,
+          bandTop,
+          bandBottom,
         )
         : [];
       const nextIds = inBand.length > 0
         ? inBand
-        : focusedTwoLineTokenIds(measurements, activeTokenIndex, lineHeightInPixels);
+        : focusedTwoLineTokenIds(tokenMeasurementsRef.current, activeTokenIndexRef.current, lineHeightInPixels);
       const nextSet = new Set(nextIds);
       setFocusedLineTokenIds((current) => {
         if (current.size === nextIds.length && nextIds.every((id) => current.has(id))) return current;
         return nextSet;
       });
       return nextSet;
-    }, [activeTokenIndex, fontSize, lineHeight]);
+    }, [fontSize, lineHeight]);
 
     const selectTokenLine = useCallback((tokenIndex: number) => {
-      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
-      onTokenClick?.(firstTokenOnVisualLine(measurements, tokenIndex, fontSize * lineHeight));
-    }, [fontSize, lineHeight, onTokenClick]);
+      if (!tokenMeasurementsRef.current.some((measurement) => measurement.id === tokenIndex)) {
+        rebuildVisualLineCache();
+      }
+      onTokenClick?.(firstTokenOnVisualLine(tokenMeasurementsRef.current, tokenIndex, fontSize * lineHeight));
+    }, [fontSize, lineHeight, onTokenClick, rebuildVisualLineCache]);
 
-    const updateCuePlacements = useCallback((focusedIds = focusedLineTokenIds) => {
+    const updateCuePlacements = useCallback(() => {
       const cues = document.tokens.filter((token) => token.kind === "cue");
       if (!cues.length) {
         setCuePlacements((current) => current.length ? [] : current);
@@ -137,7 +167,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           text: cue.text,
           top: cueVerticalCenter(targetTokenId),
           left: anchor?.offsetLeft ?? 0,
-          isActive: focusedIds.has(targetTokenId),
+          targetTokenId,
         };
       });
 
@@ -149,23 +179,23 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
               && placement.text === next.text
               && placement.top === next.top
               && placement.left === next.left
-              && placement.isActive === next.isActive;
+              && placement.targetTokenId === next.targetTokenId;
           });
         return unchanged ? current : nextPlacements;
       });
-    }, [cueTargetTokenId, cueVerticalCenter, document.tokens, focusedLineTokenIds, fontSize]);
+    }, [cueTargetTokenId, cueVerticalCenter, document.tokens]);
 
     const scrollToToken = (tokenIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
-      const measurements = [...tokenRefs.current.entries()].map(([id, node]) => ({ id, top: node.offsetTop }));
       const measuredLineHeight = fontSize * lineHeight;
-      const leadTokenIndex = leadingTwoLineTokenId(measurements, tokenIndex, measuredLineHeight);
+      const leadTokenIndex = leadingTwoLineTokenId(tokenMeasurementsRef.current, tokenIndex, measuredLineHeight);
       const token = tokenRefs.current.get(leadTokenIndex) ?? tokenRefs.current.get(tokenIndex);
       if (!viewport || !token) return;
 
-      const nextLineToken = [...tokenRefs.current.entries()]
-        .filter(([index, node]) => index > leadTokenIndex && node.offsetTop >= token.offsetTop + measuredLineHeight * 0.5)
-        .sort(([left], [right]) => left - right)[0]?.[1];
+      const currentLineIndex = visualLinesRef.current.findIndex((line) => line.tokenIds.includes(leadTokenIndex));
+      const nextLineToken = currentLineIndex >= 0
+        ? tokenRefs.current.get(visualLinesRef.current[currentLineIndex + 1]?.tokenIds[0])
+        : undefined;
       const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
       const target = calculateTwoLineScrollTarget({
         currentTop: token.offsetTop,
@@ -221,11 +251,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       getScrollTop: () => viewportRef.current?.scrollTop ?? 0,
       setScrollTop: (value: number) => {
         if (!viewportRef.current) return;
-        programmaticScroll.current = true;
         viewportRef.current.scrollTop = value;
-        window.setTimeout(() => {
-          programmaticScroll.current = false;
-        }, 30);
       },
       getLineHeight: () => fontSize * lineHeight,
       getMaxScroll: () => {
@@ -235,20 +261,23 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       findFocusedToken: () => {
         const viewport = viewportRef.current;
         if (!viewport) return activeTokenIndex;
-        const focusY = viewport.getBoundingClientRect().top + viewport.clientHeight * (focusPosition / 100);
-        let nearest = activeTokenIndex;
-        let nearestDistance = Number.POSITIVE_INFINITY;
-        tokenRefs.current.forEach((node, index) => {
-          const rect = node.getBoundingClientRect();
-          const distance = Math.abs(rect.top + rect.height / 2 - focusY);
-          if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearest = index;
-          }
-        });
-        return nearest;
+        const focusTop = viewport.scrollTop + viewport.clientHeight * (focusPosition / 100) - (fontSize * lineHeight) / 2;
+        const lines = visualLinesRef.current;
+        let low = 0;
+        let high = lines.length - 1;
+        while (low < high) {
+          const middle = Math.floor((low + high) / 2);
+          if (lines[middle].top < focusTop) low = middle + 1;
+          else high = middle;
+        }
+        const candidate = lines[low];
+        const previous = lines[low - 1];
+        const nearest = previous && Math.abs(previous.top - focusTop) < Math.abs(candidate?.top - focusTop)
+          ? previous
+          : candidate;
+        return nearest?.tokenIds[0] ?? activeTokenIndexRef.current;
       },
-    }), [activeTokenIndex, focusPosition, fontSize, lineHeight]);
+    }), [focusPosition, fontSize, lineHeight]);
 
     useEffect(() => {
       if (mode === "follow") scrollToToken(activeTokenIndex);
@@ -261,25 +290,32 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
     useEffect(() => () => {
       if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
       if (scrollUnlockTimerRef.current !== null) window.clearTimeout(scrollUnlockTimerRef.current);
+      if (layoutFrameRef.current !== null) window.cancelAnimationFrame(layoutFrameRef.current);
     }, []);
 
     useLayoutEffect(() => {
       const frame = window.requestAnimationFrame(() => {
-        const focusedIds = updateFocusedLineTokens();
-        updateCuePlacements(focusedIds);
+        rebuildVisualLineCache();
+        updateFocusedLineTokens();
+        updateCuePlacements();
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       });
       return () => window.cancelAnimationFrame(frame);
-    }, [chineseCharactersPerLine, fontSize, lineHeight, sidePadding, onChineseCharactersPerLineChange, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, document.tokens, fontSize, lineHeight, sidePadding, focusPosition, onChineseCharactersPerLineChange, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
       if (!scriptNode) return;
 
       const updateMeasurements = () => {
-        const focusedIds = updateFocusedLineTokens();
-        updateCuePlacements(focusedIds);
-        onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
+        if (layoutFrameRef.current !== null) window.cancelAnimationFrame(layoutFrameRef.current);
+        layoutFrameRef.current = window.requestAnimationFrame(() => {
+          layoutFrameRef.current = null;
+          rebuildVisualLineCache();
+          updateFocusedLineTokens();
+          updateCuePlacements();
+          onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
+        });
       };
 
       if (typeof ResizeObserver === "undefined") {
@@ -294,7 +330,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         observer.disconnect();
         window.removeEventListener("resize", updateMeasurements);
       };
-    }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
 
     return (
       <main className="reading-stage">
@@ -305,9 +341,8 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           className="prompt-viewport"
           ref={viewportRef}
           onScroll={() => {
-            if (programmaticScroll.current) {
-              const focusedIds = updateFocusedLineTokens();
-              updateCuePlacements(focusedIds);
+            if (!shouldResnapAfterScroll(mode, programmaticScroll.current)) {
+              updateFocusedLineTokens();
             } else {
               onManualScroll?.();
             }
@@ -319,7 +354,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
                 {cuePlacements.map((cue) => (
                   <div
                     key={cue.id}
-                    className={`cue-floating-card ${cue.isActive ? "is-active" : ""}`}
+                    className={`cue-floating-card ${focusedLineTokenIds.has(cue.targetTokenId) ? "is-active" : ""}`}
                     style={{ top: `${cue.top}px`, left: `${cue.left}px` }}
                   >
                     {cue.text}

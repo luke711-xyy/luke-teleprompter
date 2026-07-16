@@ -341,37 +341,46 @@ export default function App() {
       return;
     }
 
-    const initialViewport = globalThis.document.querySelector<HTMLElement>(".prompt-viewport");
-    steadyPositionRef.current = initialViewport?.scrollTop ?? 0;
-    let updateCounter = 0;
-    const interval = window.setInterval(() => {
-      const viewport = globalThis.document.querySelector<HTMLElement>(".prompt-viewport");
-      if (viewport) {
-        const characterCapacity = Math.max(1, chineseCharactersPerLine);
-        const charactersPerMinute = characterCapacity * 8 * speed;
-        const linesPerMinute = charactersPerMinute / characterCapacity;
-        const pixelsPerTick = (((fontSize * lineHeight) * linesPerMinute) / 60) / 30;
-        const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-        if (Math.abs(viewport.scrollTop - steadyPositionRef.current) > 2) {
-          steadyPositionRef.current = viewport.scrollTop;
-        }
-        const next = Math.min(maxScroll, steadyPositionRef.current + pixelsPerTick);
-        steadyPositionRef.current = next;
-        canvasRef.current?.setScrollTop(next);
-        if (maxScroll > 0 && next >= maxScroll) {
-          setPlaying(false);
-          return;
-        }
-        updateCounter += 1;
-        if (updateCounter % 8 === 0) {
-          const focused = canvasRef.current?.findFocusedToken();
-          if (focused !== undefined) {
-            setActiveTokenIndex((current) => focused >= current ? focused : current);
-          }
-        }
+    steadyPositionRef.current = canvasRef.current?.getScrollTop() ?? 0;
+    let animationFrame: number | null = null;
+    let previousTime: number | null = null;
+    let lastFocusedTokenUpdate = 0;
+
+    const animate = (now: number) => {
+      const elapsed = previousTime === null ? 0 : Math.min(100, now - previousTime);
+      previousTime = now;
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        animationFrame = window.requestAnimationFrame(animate);
+        return;
       }
-    }, 1000 / 30);
-    return () => window.clearInterval(interval);
+
+      const lineHeightInPixels = fontSize * lineHeight;
+      const pixelsPerMillisecond = (lineHeightInPixels * 8 * speed) / 60_000;
+      const current = canvas.getScrollTop();
+      if (Math.abs(current - steadyPositionRef.current) > 2) steadyPositionRef.current = current;
+      const maxScroll = canvas.getMaxScroll();
+      const next = Math.min(maxScroll, steadyPositionRef.current + pixelsPerMillisecond * elapsed);
+      steadyPositionRef.current = next;
+      canvas.setScrollTop(next);
+
+      if (maxScroll > 0 && next >= maxScroll) {
+        setPlaying(false);
+        return;
+      }
+
+      if (now - lastFocusedTokenUpdate >= 250) {
+        lastFocusedTokenUpdate = now;
+        const focused = canvas.findFocusedToken();
+        setActiveTokenIndex((currentToken) => focused >= currentToken ? focused : currentToken);
+      }
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => {
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+    };
   }, [chineseCharactersPerLine, fontSize, lineHeight, mode, playing, speed]);
 
   const clearManualResnap = useCallback(() => {

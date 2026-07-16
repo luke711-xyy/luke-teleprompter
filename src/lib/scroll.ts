@@ -9,6 +9,13 @@ export interface TwoLineScrollGeometry {
   maxScroll: number;
 }
 
+export function shouldResnapAfterScroll(
+  mode: "follow" | "steady",
+  isProgrammatic: boolean,
+): boolean {
+  return mode === "follow" && !isProgrammatic;
+}
+
 /**
  * Places the visual pair made from the current line and the following line
  * at the selected vertical focus point in the reading viewport.

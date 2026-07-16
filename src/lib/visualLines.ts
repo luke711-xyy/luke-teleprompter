@@ -3,6 +3,11 @@ export interface TokenLineMeasurement {
   top: number;
 }
 
+export interface VisualLine {
+  top: number;
+  tokenIds: number[];
+}
+
 const LEAD_LINE_PROMOTION_PROGRESS = 0.35;
 
 function sortedMeasurements(measurements: TokenLineMeasurement[]): TokenLineMeasurement[] {
@@ -26,6 +31,50 @@ function lineTokenIds(measurements: TokenLineMeasurement[], top: number, toleran
   return sortedMeasurements(measurements)
     .filter((measurement) => Math.abs(measurement.top - top) <= tolerance)
     .map((measurement) => measurement.id);
+}
+
+export function groupMeasurementsIntoVisualLines(
+  measurements: TokenLineMeasurement[],
+  lineHeight: number,
+): VisualLine[] {
+  const tolerance = Math.max(2, lineHeight * 0.18);
+  const lines: VisualLine[] = [];
+
+  sortedMeasurements(measurements).forEach((measurement) => {
+    const previous = lines[lines.length - 1];
+    if (previous && Math.abs(previous.top - measurement.top) <= tolerance) {
+      previous.tokenIds.push(measurement.id);
+      return;
+    }
+    lines.push({ top: measurement.top, tokenIds: [measurement.id] });
+  });
+
+  return lines;
+}
+
+export function focusedTokenIdsFromVisualLines(
+  lines: VisualLine[],
+  lineHeight: number,
+  scrollTop: number,
+  bandTop: number,
+  bandBottom: number,
+): number[] {
+  const minimumTop = scrollTop + bandTop - lineHeight / 2;
+  const maximumTop = scrollTop + bandBottom - lineHeight / 2;
+  let start = 0;
+  let end = lines.length;
+
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2);
+    if (lines[middle].top < minimumTop) start = middle + 1;
+    else end = middle;
+  }
+
+  const tokenIds: number[] = [];
+  for (let index = start; index < lines.length && lines[index].top <= maximumTop; index += 1) {
+    tokenIds.push(...lines[index].tokenIds);
+  }
+  return tokenIds;
 }
 
 export function firstTokenOnVisualLine(
