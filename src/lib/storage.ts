@@ -2,6 +2,9 @@ import type { PersistedSettings } from "./types";
 import {
   DIM_STRENGTH_MAX,
   DIM_STRENGTH_MIN,
+  FOCUS_BAND_HEIGHT_MAX,
+  FOCUS_BAND_HEIGHT_MIN,
+  FOCUS_BAND_HEIGHT_DEFAULT,
   FOCUS_POSITION_MAX,
   FOCUS_POSITION_MIN,
   FONT_SIZE_MAX,
@@ -24,6 +27,7 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   lineHeight: 1.42,
   sidePadding: 9,
   focusPosition: 50,
+  focusBandHeight: FOCUS_BAND_HEIGHT_DEFAULT,
   dimStrength: 100,
   skipAheadEnabled: true,
   mirrored: false,
@@ -38,6 +42,9 @@ export function loadSettings(): PersistedSettings {
     const focusPosition = typeof parsed.focusPosition === "number"
       ? Math.min(FOCUS_POSITION_MAX, Math.max(FOCUS_POSITION_MIN, parsed.focusPosition))
       : DEFAULT_SETTINGS.focusPosition;
+    const focusBandHeight = typeof parsed.focusBandHeight === "number"
+      ? Math.min(FOCUS_BAND_HEIGHT_MAX, Math.max(FOCUS_BAND_HEIGHT_MIN, parsed.focusBandHeight))
+      : DEFAULT_SETTINGS.focusBandHeight;
     const fontSize = typeof parsed.fontSize === "number"
       ? Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, parsed.fontSize))
       : DEFAULT_SETTINGS.fontSize;
@@ -53,7 +60,7 @@ export function loadSettings(): PersistedSettings {
     const skipAheadEnabled = typeof parsed.skipAheadEnabled === "boolean"
       ? parsed.skipAheadEnabled
       : DEFAULT_SETTINGS.skipAheadEnabled;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled };
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, focusBandHeight, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled };
   } catch {
     return DEFAULT_SETTINGS;
   }

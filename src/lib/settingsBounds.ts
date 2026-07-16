@@ -1,6 +1,12 @@
 export const FOCUS_POSITION_MIN = 20;
 export const FOCUS_POSITION_MAX = 80;
 
+// The reading window originally occupied roughly this fixed visual height.
+// Keep the user-adjustable range centred on that familiar default.
+export const FOCUS_BAND_HEIGHT_DEFAULT = 240;
+export const FOCUS_BAND_HEIGHT_MIN = FOCUS_BAND_HEIGHT_DEFAULT / 2;
+export const FOCUS_BAND_HEIGHT_MAX = FOCUS_BAND_HEIGHT_DEFAULT * 2;
+
 export const FONT_SIZE_MIN = 44;
 export const FONT_SIZE_MAX = 148;
 

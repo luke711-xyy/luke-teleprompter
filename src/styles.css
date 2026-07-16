@@ -320,8 +320,7 @@ input:focus-visible {
   top: 50%;
   right: 0;
   left: 0;
-  height: 27%;
-  min-height: 180px;
+  min-height: 0;
   pointer-events: none;
   background: rgba(255, 255, 255, 0.035);
   border-top: 1px solid rgba(255, 255, 255, 0.022);

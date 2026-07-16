@@ -13,6 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "luke-teleprompter"
 path = "src/main.rs"
 
+[[bin]]
+name = "luke-whisper-web-server"
+path = "src/whisper_web_server.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

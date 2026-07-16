@@ -16,6 +16,8 @@ import {
   FONT_SIZE_MIN,
   FOCUS_POSITION_MAX,
   FOCUS_POSITION_MIN,
+  FOCUS_BAND_HEIGHT_MAX,
+  FOCUS_BAND_HEIGHT_MIN,
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
   SIDE_PADDING_MAX,
@@ -28,6 +30,7 @@ interface SettingsDrawerProps {
   lineHeight: number;
   sidePadding: number;
   focusPosition: number;
+  focusBandHeight: number;
   dimStrength: number;
   skipAheadEnabled: boolean;
   mirrored: boolean;
@@ -36,6 +39,7 @@ interface SettingsDrawerProps {
   onLineHeightChange: (value: number) => void;
   onSidePaddingChange: (value: number) => void;
   onFocusPositionChange: (value: number) => void;
+  onFocusBandHeightChange: (value: number) => void;
   onDimStrengthChange: (value: number) => void;
   onToggleSkipAhead: () => void;
   onToggleMirror: () => void;
@@ -82,6 +86,7 @@ export function SettingsDrawer({
   lineHeight,
   sidePadding,
   focusPosition,
+  focusBandHeight,
   dimStrength,
   skipAheadEnabled,
   mirrored,
@@ -90,6 +95,7 @@ export function SettingsDrawer({
   onLineHeightChange,
   onSidePaddingChange,
   onFocusPositionChange,
+  onFocusBandHeightChange,
   onDimStrengthChange,
   onToggleSkipAhead,
   onToggleMirror,
@@ -148,6 +154,17 @@ export function SettingsDrawer({
           icon={<MoveVertical size={20} />}
           onChange={onFocusPositionChange}
           valueText={`${focusPosition}%，${focusPosition < 45 ? "靠上" : focusPosition > 55 ? "靠下" : "居中"}`}
+        />
+        <SliderSetting
+          label="高亮区域高度"
+          value={focusBandHeight}
+          min={FOCUS_BAND_HEIGHT_MIN}
+          max={FOCUS_BAND_HEIGHT_MAX}
+          step={1}
+          output={`${focusBandHeight}px`}
+          icon={<RectangleHorizontal size={20} />}
+          onChange={onFocusBandHeightChange}
+          valueText={`${focusBandHeight}px`}
         />
         <SliderSetting
           label="暗显强度"

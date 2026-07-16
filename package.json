@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "whisper:web": "cd src-tauri && cargo run --release --bin luke-whisper-web-server"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

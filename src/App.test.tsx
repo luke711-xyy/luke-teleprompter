@@ -2,13 +2,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
-const speechStartMock = vi.fn();
-const speechLanguageMock = vi.fn();
 const localRecognizedPhrase = "今天我们来看看这款产品 and why it fits naturally into your everyday workflow";
 const distantRecognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
-let recognizedPhrase = localRecognizedPhrase;
-let emitFinalRecognition = true;
-let emitRecognition: ((text: string, isFinal: boolean) => void) | undefined;
+const localWhisperMock = vi.hoisted(() => ({
+  starts: [] as Array<{ prompt: string; options: { language?: string } }>,
+  emitFinalRecognition: true,
+  recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
+  emit: undefined as ((text: string, isFinal: boolean) => void) | undefined,
+}));
 const requestFullscreenMock = vi.fn(async () => undefined);
 const orientationLockMock = vi.fn(async () => undefined);
 
@@ -20,13 +21,42 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
+vi.mock("./lib/localWhisper", () => {
+  class MockLocalWhisperSession {
+    constructor(private readonly callbacks: {
+      onState: (state: { state: "loading" | "listening" | "error"; message?: string }) => void;
+      onLevel: (level: { level: number; isSpeech: boolean }) => void;
+      onResult: (result: { text: string; detectedLanguage: string; confidence: number; isFinal: boolean }) => void;
+    }) {}
+
+    async start(prompt = "", options: { language?: string } = {}) {
+      localWhisperMock.starts.push({ prompt, options });
+      this.callbacks.onState({ state: "listening", message: "Whisper base 正在本机识别中文 / English" });
+      this.callbacks.onLevel({ level: 0.2, isSpeech: true });
+      localWhisperMock.emit = (text, isFinal) => {
+        this.callbacks.onResult({
+          text,
+          detectedLanguage: "zh-CN",
+          confidence: isFinal ? 0.91 : 0.01,
+          isFinal,
+        });
+      };
+      localWhisperMock.emit(localWhisperMock.recognizedPhrase, false);
+      if (localWhisperMock.emitFinalRecognition) localWhisperMock.emit(localWhisperMock.recognizedPhrase, true);
+    }
+
+    stop() {}
+  }
+
+  return { LocalWhisperSession: MockLocalWhisperSession, isLocalWhisperSupported: () => true };
+});
+
 describe("microphone test panel", () => {
   beforeEach(() => {
-    speechStartMock.mockReset();
-    speechLanguageMock.mockReset();
-    emitFinalRecognition = true;
-    recognizedPhrase = localRecognizedPhrase;
-    emitRecognition = undefined;
+    localWhisperMock.starts = [];
+    localWhisperMock.emitFinalRecognition = true;
+    localWhisperMock.recognizedPhrase = localRecognizedPhrase;
+    localWhisperMock.emit = undefined;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,
@@ -42,58 +72,6 @@ describe("microphone test panel", () => {
     Object.defineProperty(globalThis.screen, "orientation", {
       configurable: true,
       value: { lock: orientationLockMock },
-    });
-    Object.defineProperty(navigator, "mediaDevices", {
-      configurable: true,
-      value: {
-        getUserMedia: vi.fn(async () => ({
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ kind: "audio", readyState: "live", stop: vi.fn() }],
-        })),
-      },
-    });
-
-    class MockSpeechRecognition {
-      continuous = false;
-      interimResults = false;
-      maxAlternatives = 1;
-      lang = "";
-      onstart: ((event: Event) => void) | null = null;
-      onresult: ((event: Event) => void) | null = null;
-      onerror: ((event: Event) => void) | null = null;
-      onend: ((event: Event) => void) | null = null;
-      onspeechstart: ((event: Event) => void) | null = null;
-      onspeechend: ((event: Event) => void) | null = null;
-
-      constructor() {
-        emitRecognition = (text, isFinal) => {
-          const result = Object.assign(
-            [{ transcript: text, confidence: isFinal ? 0.91 : 0.01 }],
-            { isFinal },
-          );
-          this.onresult?.(Object.assign(new Event("result"), {
-            resultIndex: 0,
-            results: [result],
-          }));
-        };
-      }
-
-      start(_track?: MediaStreamTrack) {
-        speechStartMock(_track);
-        speechLanguageMock(this.lang);
-        this.onstart?.(new Event("start"));
-        emitRecognition?.(recognizedPhrase, false);
-        if (emitFinalRecognition) {
-          emitRecognition?.(recognizedPhrase, true);
-        }
-      }
-
-      abort() {}
-    }
-
-    Object.defineProperty(window, "webkitSpeechRecognition", {
-      configurable: true,
-      value: MockSpeechRecognition,
     });
   });
 
@@ -114,17 +92,16 @@ describe("microphone test panel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /开始测试/ }));
     await waitFor(() => expect(screen.getByText("正在测试")).toBeInTheDocument());
-    expect(screen.getAllByText(recognizedPhrase)).toHaveLength(1);
+    expect(screen.getAllByText(localWhisperMock.recognizedPhrase)).toHaveLength(1);
     expect(screen.getByText("zh-CN · 91%")).toBeInTheDocument();
     expect(screen.queryByText("zh-CN · 1%")).not.toBeInTheDocument();
-    expect(speechStartMock.mock.calls.some(([track]) => track?.kind === "audio")).toBe(true);
-    expect(speechLanguageMock).toHaveBeenCalledWith("zh-CN");
+    expect(localWhisperMock.starts).toContainEqual(expect.objectContaining({ options: { language: "zh-CN" } }));
 
     fireEvent.click(screen.getByRole("button", { name: /清空结果/ }));
-    expect(screen.queryByText(recognizedPhrase)).not.toBeInTheDocument();
+    expect(screen.queryByText(localWhisperMock.recognizedPhrase)).not.toBeInTheDocument();
   });
 
-  it("advances the browser teleprompter from one local final recognition result", async () => {
+  it("advances the browser teleprompter from one local Whisper final recognition result", async () => {
     render(<App />);
 
     await waitFor(() => {
@@ -132,8 +109,8 @@ describe("microphone test panel", () => {
     });
   });
 
-  it("advances provisionally from a strong local Chrome interim result", async () => {
-    emitFinalRecognition = false;
+  it("advances provisionally from a strong local Whisper interim result", async () => {
+    localWhisperMock.emitFinalRecognition = false;
     render(<App />);
 
     await waitFor(() => {
@@ -142,16 +119,16 @@ describe("microphone test panel", () => {
   });
 
   it("only recovers to a distant final result after local tracking has been missing for a while", async () => {
-    emitFinalRecognition = false;
-    recognizedPhrase = distantRecognizedPhrase;
+    localWhisperMock.emitFinalRecognition = false;
+    localWhisperMock.recognizedPhrase = distantRecognizedPhrase;
     let now = 0;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
     render(<App />);
 
-    await waitFor(() => expect(speechStartMock).toHaveBeenCalled());
+    await waitFor(() => expect(localWhisperMock.starts.length).toBeGreaterThan(0));
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
     now = 2501;
-    await act(async () => emitRecognition?.(distantRecognizedPhrase, true));
+    await act(async () => localWhisperMock.emit?.(distantRecognizedPhrase, true));
 
     await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
@@ -160,17 +137,17 @@ describe("microphone test panel", () => {
   });
 
   it("does not use distant recovery when sequential reading is enabled", async () => {
-    emitFinalRecognition = false;
-    recognizedPhrase = distantRecognizedPhrase;
+    localWhisperMock.emitFinalRecognition = false;
+    localWhisperMock.recognizedPhrase = distantRecognizedPhrase;
     let now = 0;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
     render(<App />);
-    await waitFor(() => expect(speechStartMock).toHaveBeenCalled());
+    await waitFor(() => expect(localWhisperMock.starts.length).toBeGreaterThan(0));
     fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
     fireEvent.click(screen.getByRole("button", { name: "跳读匹配" }));
 
     now = 2501;
-    await act(async () => emitRecognition?.(distantRecognizedPhrase, true));
+    await act(async () => localWhisperMock.emit?.(distantRecognizedPhrase, true));
 
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
     clock.mockRestore();
@@ -194,6 +171,16 @@ describe("microphone test panel", () => {
     expect(globalThis.document.querySelector<HTMLElement>(".focus-band")?.style.top).toBe("36%");
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusPosition).toBe(36);
+    });
+
+    const focusBandHeightSlider = screen.getByRole("slider", { name: "高亮区域高度" });
+    expect(focusBandHeightSlider).toHaveValue("240");
+    expect(focusBandHeightSlider).toHaveAttribute("min", "120");
+    expect(focusBandHeightSlider).toHaveAttribute("max", "480");
+    fireEvent.change(focusBandHeightSlider, { target: { value: "300" } });
+    expect(globalThis.document.querySelector<HTMLElement>(".focus-band")?.style.height).toBe("300px");
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("luke-teleprompter:settings:v1") ?? "{}").focusBandHeight).toBe(300);
     });
 
     const lineHeightSlider = screen.getByRole("slider", { name: "行距" });
@@ -281,7 +268,7 @@ describe("microphone test panel", () => {
 
     const speedSlider = screen.getByRole("slider", { name: "匀速滚动速度" });
     expect(speedSlider).toHaveValue("1");
-    expect(speedSlider).toHaveAttribute("max", "5");
+    expect(speedSlider).toHaveAttribute("max", "10");
     expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
   });
 

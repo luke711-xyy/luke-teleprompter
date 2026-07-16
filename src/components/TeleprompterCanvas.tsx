@@ -27,6 +27,7 @@ interface TeleprompterCanvasProps {
   lineHeight: number;
   sidePadding: number;
   focusPosition: number;
+  focusBandHeight: number;
   dimStrength: number;
   mirrored: boolean;
   mode: ScrollMode;
@@ -36,7 +37,7 @@ interface TeleprompterCanvasProps {
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const focusBandRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
@@ -301,7 +302,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
       });
       return () => window.cancelAnimationFrame(frame);
-    }, [chineseCharactersPerLine, document.tokens, fontSize, lineHeight, sidePadding, focusPosition, onChineseCharactersPerLineChange, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, document.tokens, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, onChineseCharactersPerLineChange, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
@@ -334,7 +335,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     return (
       <main className="reading-stage">
-        <div className="focus-band" ref={focusBandRef} style={{ top: `${focusPosition}%` }} aria-hidden="true">
+        <div className="focus-band" ref={focusBandRef} style={{ top: `${focusPosition}%`, height: `${focusBandHeight}px` }} aria-hidden="true">
           <span className="focus-marker" />
         </div>
         <div

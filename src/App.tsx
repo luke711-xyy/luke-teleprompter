@@ -9,7 +9,7 @@ import { MobileOrientationGate } from "./components/MobileOrientationGate";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
-import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
+import { isLocalWhisperSupported, LocalWhisperSession } from "./lib/localWhisper";
 import { findForwardMatch, MatchHysteresis, RecoveryMatchGate } from "./lib/matcher";
 import {
   firstSentenceToken,
@@ -60,6 +60,7 @@ export default function App() {
   const [lineHeight, setLineHeight] = useState(initialSettings.lineHeight);
   const [sidePadding, setSidePadding] = useState(initialSettings.sidePadding);
   const [focusPosition, setFocusPosition] = useState(initialSettings.focusPosition);
+  const [focusBandHeight, setFocusBandHeight] = useState(initialSettings.focusBandHeight);
   const [dimStrength, setDimStrength] = useState(initialSettings.dimStrength);
   const [skipAheadEnabled, setSkipAheadEnabled] = useState(initialSettings.skipAheadEnabled);
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
@@ -88,7 +89,7 @@ export default function App() {
   const hysteresisRef = useRef(new MatchHysteresis());
   const recoveryMatchGateRef = useRef(new RecoveryMatchGate());
   const localMissStartedAtRef = useRef<number | null>(null);
-  const browserSpeechRef = useRef<BrowserSpeechSession | null>(null);
+  const localWhisperRef = useRef<LocalWhisperSession | null>(null);
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
   const document = useMemo(() => parseScript(script), [script]);
@@ -158,10 +159,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,8 +230,8 @@ export default function App() {
     if (modelStatus.state !== "ready" || mode !== "follow" || !playing || !microphoneEnabled || editorOpen || microphoneTestOpen) {
       if (isTauri()) void stopRecognition();
       else {
-        browserSpeechRef.current?.stop();
-        browserSpeechRef.current = null;
+        localWhisperRef.current?.stop();
+        localWhisperRef.current = null;
       }
       if ((!playing || !microphoneEnabled) && recognitionState === "listening") setRecognitionState("paused");
       return;
@@ -244,7 +245,7 @@ export default function App() {
       return () => { void stopRecognition(); };
     }
 
-    const session = new BrowserSpeechSession({
+    const session = new LocalWhisperSession({
       onState: (state) => {
         setRecognitionState(state.state);
         setStatusMessage(state.message ?? "");
@@ -252,14 +253,14 @@ export default function App() {
       onLevel: () => undefined,
       onResult: (result) => followResultHandlerRef.current(result),
     });
-    browserSpeechRef.current = session;
+    localWhisperRef.current = session;
     void session.start(nearbyPrompt).catch((error) => {
       setRecognitionState("error");
       setStatusMessage(String(error));
     });
     return () => {
       session.stop();
-      if (browserSpeechRef.current === session) browserSpeechRef.current = null;
+      if (localWhisperRef.current === session) localWhisperRef.current = null;
     };
   }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing]);
 
@@ -268,8 +269,8 @@ export default function App() {
     setPlaying(false);
     if (isTauri()) void stopRecognition();
     else {
-      browserSpeechRef.current?.stop();
-      browserSpeechRef.current = null;
+      localWhisperRef.current?.stop();
+      localWhisperRef.current = null;
     }
   };
 
@@ -283,13 +284,13 @@ export default function App() {
       return;
     }
     if (!isTauri()) {
-      if (!isBrowserSpeechSupported()) {
+      if (!isLocalWhisperSupported()) {
         setMicrophoneTestState("error");
-        setMicrophoneTestMessage("当前浏览器不支持语音识别，请使用最新版 Google Chrome。");
+        setMicrophoneTestMessage("当前浏览器不支持本地音频采集，请使用最新版 Google Chrome。");
         return;
       }
       try {
-        const session = new BrowserSpeechSession({
+        const session = new LocalWhisperSession({
           onState: (state) => {
             setMicrophoneTestState(state.state);
             setMicrophoneTestMessage(state.message ?? "");
@@ -299,7 +300,7 @@ export default function App() {
             setMicrophoneTestResults((current) => mergeMicrophoneResult(current, result));
           },
         });
-        browserSpeechRef.current = session;
+        localWhisperRef.current = session;
         await session.start(script, { language: "zh-CN" });
       } catch (error) {
         setMicrophoneTestState("error");
@@ -323,8 +324,8 @@ export default function App() {
   const handleStopMicrophoneTest = async () => {
     if (isTauri()) await stopMicrophoneTest();
     else {
-      browserSpeechRef.current?.stop();
-      browserSpeechRef.current = null;
+      localWhisperRef.current?.stop();
+      localWhisperRef.current = null;
     }
     setMicrophoneTestState("idle");
     setMicrophoneTestMessage("");
@@ -542,6 +543,7 @@ export default function App() {
         lineHeight={lineHeight}
         sidePadding={sidePadding}
         focusPosition={focusPosition}
+        focusBandHeight={focusBandHeight}
         dimStrength={dimStrength}
         mirrored={mirrored}
         mode={mode}
@@ -565,6 +567,7 @@ export default function App() {
         lineHeight={lineHeight}
         sidePadding={sidePadding}
         focusPosition={focusPosition}
+        focusBandHeight={focusBandHeight}
         dimStrength={dimStrength}
         skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
@@ -573,6 +576,7 @@ export default function App() {
         onLineHeightChange={setLineHeight}
         onSidePaddingChange={setSidePadding}
         onFocusPositionChange={setFocusPosition}
+        onFocusBandHeightChange={setFocusBandHeight}
         onDimStrengthChange={setDimStrength}
         onToggleSkipAhead={() => {
           setSkipAheadEnabled((value) => !value);

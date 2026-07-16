@@ -68,6 +68,7 @@ export interface PersistedSettings {
   lineHeight: number;
   sidePadding: number;
   focusPosition: number;
+  focusBandHeight: number;
   dimStrength: number;
   skipAheadEnabled: boolean;
   mirrored: boolean;
