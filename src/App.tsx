@@ -9,8 +9,8 @@ import { MobileOrientationGate } from "./components/MobileOrientationGate";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
-import { isLocalWhisperSupported, LocalWhisperSession } from "./lib/localWhisper";
-import { findForwardMatch, MatchHysteresis, RecoveryMatchGate } from "./lib/matcher";
+import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
+import { findForwardMatch, MatchHysteresis, RecoveryMatchGate, StreamingMatchGate } from "./lib/matcher";
 import {
   firstSentenceToken,
   lastSentenceToken,
@@ -66,7 +66,7 @@ export default function App() {
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
-  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -88,8 +88,9 @@ export default function App() {
   const steadyPositionRef = useRef(0);
   const hysteresisRef = useRef(new MatchHysteresis());
   const recoveryMatchGateRef = useRef(new RecoveryMatchGate());
+  const streamingMatchGateRef = useRef(new StreamingMatchGate());
   const localMissStartedAtRef = useRef<number | null>(null);
-  const localWhisperRef = useRef<LocalWhisperSession | null>(null);
+  const browserSpeechRef = useRef<BrowserSpeechSession | null>(null);
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
   const document = useMemo(() => parseScript(script), [script]);
@@ -142,7 +143,9 @@ export default function App() {
     // stronger text-match threshold lets them move the prompt provisionally
     // without trusting the browser's often-misleading interim confidence.
     if (!result.isFinal && match.score < 0.76) return;
-    const confirmed = nativeRecognition ? hysteresisRef.current.confirm(match, document) : true;
+    const confirmed = nativeRecognition
+      ? hysteresisRef.current.confirm(match, document)
+      : streamingMatchGateRef.current.confirm(match, result.isFinal);
     if (confirmed) {
       currentSearchableRef.current = match.searchableIndex;
       setActiveTokenIndex(match.displayTokenIndex);
@@ -230,9 +233,10 @@ export default function App() {
     if (modelStatus.state !== "ready" || mode !== "follow" || !playing || !microphoneEnabled || editorOpen || microphoneTestOpen) {
       if (isTauri()) void stopRecognition();
       else {
-        localWhisperRef.current?.stop();
-        localWhisperRef.current = null;
+        browserSpeechRef.current?.stop();
+        browserSpeechRef.current = null;
       }
+      streamingMatchGateRef.current.reset();
       if ((!playing || !microphoneEnabled) && recognitionState === "listening") setRecognitionState("paused");
       return;
     }
@@ -245,7 +249,7 @@ export default function App() {
       return () => { void stopRecognition(); };
     }
 
-    const session = new LocalWhisperSession({
+    const session = new BrowserSpeechSession({
       onState: (state) => {
         setRecognitionState(state.state);
         setStatusMessage(state.message ?? "");
@@ -253,14 +257,14 @@ export default function App() {
       onLevel: () => undefined,
       onResult: (result) => followResultHandlerRef.current(result),
     });
-    localWhisperRef.current = session;
+    browserSpeechRef.current = session;
     void session.start(nearbyPrompt).catch((error) => {
       setRecognitionState("error");
       setStatusMessage(String(error));
     });
     return () => {
       session.stop();
-      if (localWhisperRef.current === session) localWhisperRef.current = null;
+      if (browserSpeechRef.current === session) browserSpeechRef.current = null;
     };
   }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing]);
 
@@ -269,8 +273,8 @@ export default function App() {
     setPlaying(false);
     if (isTauri()) void stopRecognition();
     else {
-      localWhisperRef.current?.stop();
-      localWhisperRef.current = null;
+      browserSpeechRef.current?.stop();
+      browserSpeechRef.current = null;
     }
   };
 
@@ -284,13 +288,13 @@ export default function App() {
       return;
     }
     if (!isTauri()) {
-      if (!isLocalWhisperSupported()) {
+      if (!isBrowserSpeechSupported()) {
         setMicrophoneTestState("error");
-        setMicrophoneTestMessage("当前浏览器不支持本地音频采集，请使用最新版 Google Chrome。");
+        setMicrophoneTestMessage("当前浏览器不支持语音识别，请使用最新版 Google Chrome。");
         return;
       }
       try {
-        const session = new LocalWhisperSession({
+        const session = new BrowserSpeechSession({
           onState: (state) => {
             setMicrophoneTestState(state.state);
             setMicrophoneTestMessage(state.message ?? "");
@@ -300,7 +304,7 @@ export default function App() {
             setMicrophoneTestResults((current) => mergeMicrophoneResult(current, result));
           },
         });
-        localWhisperRef.current = session;
+        browserSpeechRef.current = session;
         await session.start(script, { language: "zh-CN" });
       } catch (error) {
         setMicrophoneTestState("error");
@@ -324,8 +328,8 @@ export default function App() {
   const handleStopMicrophoneTest = async () => {
     if (isTauri()) await stopMicrophoneTest();
     else {
-      localWhisperRef.current?.stop();
-      localWhisperRef.current = null;
+      browserSpeechRef.current?.stop();
+      browserSpeechRef.current = null;
     }
     setMicrophoneTestState("idle");
     setMicrophoneTestMessage("");
@@ -396,6 +400,7 @@ export default function App() {
     const safeIndex = Math.min(Math.max(0, index), Math.max(0, document.tokens.length - 1));
     hysteresisRef.current.reset();
     recoveryMatchGateRef.current.reset();
+    streamingMatchGateRef.current.reset();
     localMissStartedAtRef.current = null;
     setActiveTokenIndex(safeIndex);
     canvasRef.current?.scrollToToken(safeIndex);
@@ -418,6 +423,7 @@ export default function App() {
     setPlaying(true);
     hysteresisRef.current.reset();
     recoveryMatchGateRef.current.reset();
+    streamingMatchGateRef.current.reset();
     localMissStartedAtRef.current = null;
   };
 
@@ -582,6 +588,7 @@ export default function App() {
           setSkipAheadEnabled((value) => !value);
           hysteresisRef.current.reset();
           recoveryMatchGateRef.current.reset();
+          streamingMatchGateRef.current.reset();
           localMissStartedAtRef.current = null;
         }}
         onToggleMirror={() => setMirrored((value) => !value)}
@@ -602,6 +609,7 @@ export default function App() {
           currentSearchableRef.current = 0;
           hysteresisRef.current.reset();
           recoveryMatchGateRef.current.reset();
+          streamingMatchGateRef.current.reset();
           localMissStartedAtRef.current = null;
           canvasRef.current?.setScrollTop(0);
         }}
