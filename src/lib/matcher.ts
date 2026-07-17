@@ -104,6 +104,33 @@ export class MatchHysteresis {
   }
 }
 
+/**
+ * Prevents a low-confidence interim browser hypothesis from moving the
+ * teleprompter until the next streaming hypothesis agrees with it. Final and
+ * near-exact results stay responsive so natural reading does not feel gated.
+ */
+export class StreamingMatchGate {
+  private pendingIndex = -1;
+  private repeats = 0;
+
+  confirm(match: FollowMatch, isFinal: boolean): boolean {
+    if (isFinal || match.score >= 0.9) {
+      this.reset();
+      return true;
+    }
+
+    const nearby = Math.abs(match.searchableIndex - this.pendingIndex) <= 2;
+    this.repeats = nearby ? this.repeats + 1 : 1;
+    this.pendingIndex = match.searchableIndex;
+    return this.repeats >= 2;
+  }
+
+  reset(): void {
+    this.pendingIndex = -1;
+    this.repeats = 0;
+  }
+}
+
 export class RecoveryMatchGate {
   private pendingStart = -1;
   private pendingTarget = -1;
