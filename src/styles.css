@@ -649,6 +649,35 @@ input:focus-visible {
   font-weight: 620;
 }
 
+.drawer-engine-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.drawer-engine-picker button {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.drawer-engine-picker button.is-active {
+  border-color: rgba(255, 173, 31, 0.68);
+  background: rgba(255, 165, 21, 0.13);
+  color: var(--accent);
+}
+
+.drawer-engine-picker button:disabled {
+  cursor: wait;
+  opacity: 0.56;
+}
+
 .drawer-service__heading > span {
   display: inline-flex;
   gap: 8px;

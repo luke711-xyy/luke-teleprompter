@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   skipAheadEnabled: true,
   mirrored: false,
   activeTokenIndex: 28,
+  recognitionEngine: "browser",
 };
 
 export function loadSettings(): PersistedSettings {
@@ -60,7 +61,10 @@ export function loadSettings(): PersistedSettings {
     const skipAheadEnabled = typeof parsed.skipAheadEnabled === "boolean"
       ? parsed.skipAheadEnabled
       : DEFAULT_SETTINGS.skipAheadEnabled;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, focusBandHeight, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled };
+    const recognitionEngine = parsed.recognitionEngine === "whisper" || parsed.recognitionEngine === "browser"
+      ? parsed.recognitionEngine
+      : DEFAULT_SETTINGS.recognitionEngine;
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, focusBandHeight, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled, recognitionEngine };
   } catch {
     return DEFAULT_SETTINGS;
   }

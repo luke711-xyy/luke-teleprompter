@@ -10,6 +10,11 @@ const browserSpeechMock = vi.hoisted(() => ({
   recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
   emit: undefined as ((text: string, isFinal: boolean) => void) | undefined,
 }));
+const localWhisperMock = vi.hoisted(() => ({
+  starts: [] as Array<{ prompt: string; options: { language?: string } }>,
+  stops: 0,
+  recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
+}));
 const requestFullscreenMock = vi.fn(async () => undefined);
 const orientationLockMock = vi.fn(async () => undefined);
 
@@ -51,12 +56,49 @@ vi.mock("./lib/browserSpeech", () => {
   return { BrowserSpeechSession: MockBrowserSpeechSession, isBrowserSpeechSupported: () => true };
 });
 
+vi.mock("./lib/localWhisper", () => {
+  class MockLocalWhisperSession {
+    constructor(private readonly callbacks: {
+      onState: (state: { state: "loading" | "listening" | "error"; message?: string }) => void;
+      onLevel: (level: { level: number; isSpeech: boolean }) => void;
+      onResult: (result: { text: string; detectedLanguage: string; confidence: number; isFinal: boolean }) => void;
+    }) {}
+
+    async start(prompt = "", options: { language?: string } = {}) {
+      localWhisperMock.starts.push({ prompt, options });
+      this.callbacks.onState({ state: "listening", message: "Whisper base 正在本机识别中文 / English" });
+      this.callbacks.onLevel({ level: 0.2, isSpeech: true });
+      this.callbacks.onResult({
+        text: localWhisperMock.recognizedPhrase,
+        detectedLanguage: "chinese",
+        confidence: 0.8,
+        isFinal: true,
+      });
+    }
+
+    stop() {
+      localWhisperMock.stops += 1;
+    }
+  }
+
+  return {
+    LocalWhisperSession: MockLocalWhisperSession,
+    isLocalWhisperSupported: () => true,
+    getLocalWhisperServiceStatus: async () => "stopped",
+    startLocalWhisperService: async () => "ready",
+    stopLocalWhisperService: async () => "stopped",
+  };
+});
+
 describe("microphone test panel", () => {
   beforeEach(() => {
     browserSpeechMock.starts = [];
     browserSpeechMock.emitFinalRecognition = true;
     browserSpeechMock.recognizedPhrase = localRecognizedPhrase;
     browserSpeechMock.emit = undefined;
+    localWhisperMock.starts = [];
+    localWhisperMock.stops = 0;
+    localWhisperMock.recognizedPhrase = localRecognizedPhrase;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,
@@ -108,6 +150,32 @@ describe("microphone test panel", () => {
     expect(browserSpeechMock.starts).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
     expect(browserSpeechMock.starts).toHaveLength(1);
+  });
+
+  it("switches automatic following to local Whisper and starts the local audio pipeline", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "本机 Whisper" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "本机 Whisper" })).toHaveAttribute("aria-pressed", "true"));
+
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
+    await waitFor(() => expect(localWhisperMock.starts).toHaveLength(1));
+    expect(browserSpeechMock.starts).toHaveLength(0);
+  });
+
+  it("labels microphone testing with the selected local Whisper engine", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "本机 Whisper" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "本机 Whisper" })).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.click(screen.getByRole("button", { name: /麦克风测试/ }));
+
+    expect(screen.getByText("当前识别方式：本机 Whisper")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /开始测试/ }));
+    await waitFor(() => expect(localWhisperMock.starts).toHaveLength(1));
+    expect(screen.getByText("chinese · 80%")).toBeInTheDocument();
   });
 
   it("advances the browser teleprompter from one Chrome final recognition result", async () => {

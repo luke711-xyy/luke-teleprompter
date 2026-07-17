@@ -48,7 +48,8 @@ export function MicrophoneTestModal({
         <header className="microphone-test-modal__header">
           <div>
             <h2 id="microphone-test-title">麦克风测试</h2>
-            <p>{message || `当前使用${recognitionEngine}。说一段中文或 English，下面会显示实时识别结果。`}</p>
+            <p>当前识别方式：{recognitionEngine}</p>
+            <p>{message || "说一段中文或 English，下面会显示实时识别结果。"}</p>
           </div>
           <button className="close-button" onClick={onClose} aria-label="关闭麦克风测试">
             <X size={20} />

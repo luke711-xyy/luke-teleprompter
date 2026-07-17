@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { RecognitionEngine } from "../lib/types";
 import {
   DIM_STRENGTH_MAX,
   DIM_STRENGTH_MIN,
@@ -35,6 +36,7 @@ interface SettingsDrawerProps {
   dimStrength: number;
   skipAheadEnabled: boolean;
   mirrored: boolean;
+  recognitionEngine?: RecognitionEngine;
   localWhisperServiceState?: "ready" | "stopped" | "checking" | "starting" | "stopping" | "unavailable";
   localWhisperServiceMessage: string;
   onClose: () => void;
@@ -46,7 +48,7 @@ interface SettingsDrawerProps {
   onDimStrengthChange: (value: number) => void;
   onToggleSkipAhead: () => void;
   onToggleMirror: () => void;
-  onToggleLocalWhisperService: () => void;
+  onRecognitionEngineChange: (engine: RecognitionEngine) => void;
   onMicrophoneTest: () => void;
 }
 
@@ -94,6 +96,7 @@ export function SettingsDrawer({
   dimStrength,
   skipAheadEnabled,
   mirrored,
+  recognitionEngine,
   localWhisperServiceState,
   localWhisperServiceMessage,
   onClose,
@@ -105,7 +108,7 @@ export function SettingsDrawer({
   onDimStrengthChange,
   onToggleSkipAhead,
   onToggleMirror,
-  onToggleLocalWhisperService,
+  onRecognitionEngineChange,
   onMicrophoneTest,
 }: SettingsDrawerProps) {
   if (!open) return null;
@@ -200,29 +203,37 @@ export function SettingsDrawer({
           <Shuffle size={20} /> 跳读匹配
           <span>{skipAheadEnabled ? "已开启" : "顺序"}</span>
         </button>
-        {localWhisperServiceState && (
-          <section className="drawer-service" aria-label="可选本机 Whisper 模型">
+        {localWhisperServiceState && recognitionEngine && (
+          <section className="drawer-service" aria-label="识别方式">
             <div className="drawer-service__heading">
-              <span><Cpu size={20} /> 可选本机 Whisper 模型</span>
+              <span><Cpu size={20} /> 识别方式</span>
               <output className={`drawer-service__status is-${localWhisperServiceState}`}>
-                {localWhisperServiceState === "ready" ? "已载入" : localWhisperServiceState === "stopped" ? "未载入" : localWhisperServiceState === "unavailable" ? "未连接" : "处理中"}
+                {recognitionEngine === "browser" ? "Chrome" : localWhisperServiceState === "ready" ? "本机 Whisper" : "处理中"}
               </output>
             </div>
+            <div className="drawer-engine-picker" role="group" aria-label="选择识别方式">
+              <button
+                className={recognitionEngine === "browser" ? "is-active" : ""}
+                onClick={() => onRecognitionEngineChange("browser")}
+                aria-pressed={recognitionEngine === "browser"}
+                disabled={localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
+              >
+                Chrome 语音识别
+              </button>
+              <button
+                className={recognitionEngine === "whisper" ? "is-active" : ""}
+                onClick={() => onRecognitionEngineChange("whisper")}
+                aria-pressed={recognitionEngine === "whisper"}
+                disabled={localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
+              >
+                本机 Whisper
+              </button>
+            </div>
             <p>
-              {localWhisperServiceMessage || (localWhisperServiceState === "ready"
-                ? "模型已载入内存。当前网页版仍使用 Chrome 语音识别；关闭这里只会释放可选 Whisper 模型，不会关闭麦克风。"
-                : localWhisperServiceState === "stopped"
-                  ? "模型未载入，不占用 Whisper 推理内存。网页麦克风仍可用，因为它走 Chrome 语音识别。"
-                  : "正在检查这台 Mac 上的本机模型服务。")}
+              {localWhisperServiceMessage || (recognitionEngine === "whisper"
+                ? "麦克风音频正在本机转写；切回 Chrome 会自动卸载 Whisper 模型并释放内存。"
+                : "使用 Chrome 的实时语音识别。本机 Whisper 模型未参与识别，也不会占用推理内存。")}
             </p>
-            <button
-              className={`drawer-service__button ${localWhisperServiceState === "ready" ? "is-stop" : ""}`}
-              onClick={onToggleLocalWhisperService}
-              disabled={localWhisperServiceState === "checking" || localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
-            >
-              <Cpu size={19} />
-              {localWhisperServiceState === "ready" ? "关闭并释放模型" : localWhisperServiceState === "unavailable" ? "重新检测服务" : localWhisperServiceState === "starting" ? "正在启动模型…" : localWhisperServiceState === "stopping" ? "正在释放模型…" : "启动模型服务"}
-            </button>
           </section>
         )}
       </div>

@@ -1,4 +1,5 @@
 export type ScrollMode = "follow" | "steady";
+export type RecognitionEngine = "browser" | "whisper";
 
 export type TokenKind = "latin" | "cjk" | "space" | "linebreak" | "punctuation" | "cue";
 
@@ -73,4 +74,5 @@ export interface PersistedSettings {
   skipAheadEnabled: boolean;
   mirrored: boolean;
   activeTokenIndex: number;
+  recognitionEngine: RecognitionEngine;
 }

@@ -12,6 +12,8 @@ import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
 import {
   getLocalWhisperServiceStatus,
+  isLocalWhisperSupported,
+  LocalWhisperSession,
   startLocalWhisperService,
   stopLocalWhisperService,
   type LocalWhisperServiceStatus,
@@ -45,7 +47,7 @@ import {
   stopMicrophoneTest,
   stopRecognition,
 } from "./lib/tauri";
-import type { ModelProgress, ModelStatus, RecognitionLevel, RecognitionResult, RecognitionState, ScrollMode } from "./lib/types";
+import type { ModelProgress, ModelStatus, RecognitionEngine, RecognitionLevel, RecognitionResult, RecognitionState, ScrollMode } from "./lib/types";
 
 const initialSettings = loadSettings();
 const RECOVERY_AFTER_LOCAL_MISS_MS = 2500;
@@ -74,6 +76,7 @@ export default function App() {
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
+  const [recognitionEngine, setRecognitionEngine] = useState<RecognitionEngine>(initialSettings.recognitionEngine);
   const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -100,6 +103,7 @@ export default function App() {
   const streamingMatchGateRef = useRef(new StreamingMatchGate());
   const localMissStartedAtRef = useRef<number | null>(null);
   const browserSpeechRef = useRef<BrowserSpeechSession | null>(null);
+  const localWhisperRef = useRef<LocalWhisperSession | null>(null);
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
   const document = useMemo(() => parseScript(script), [script]);
@@ -107,7 +111,7 @@ export default function App() {
 
   followResultHandlerRef.current = (result) => {
     if (!playing || !microphoneEnabled || mode !== "follow") return;
-    const nativeRecognition = isTauri();
+    const nativeRecognition = isTauri() || recognitionEngine === "whisper";
     if (nativeRecognition && !result.isFinal) return;
     const currentSearchableIndex = currentSearchableRef.current;
     const localCandidate = findForwardMatch(
@@ -171,10 +175,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex });
+      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex]);
+  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine]);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,13 +242,17 @@ export default function App() {
       .join("");
   }, [activeTokenIndex, document.tokens]);
 
+  const stopWebRecognitionSessions = () => {
+    browserSpeechRef.current?.stop();
+    browserSpeechRef.current = null;
+    localWhisperRef.current?.stop();
+    localWhisperRef.current = null;
+  };
+
   useEffect(() => {
     if (modelStatus.state !== "ready" || mode !== "follow" || !playing || !microphoneEnabled || editorOpen || microphoneTestOpen) {
       if (isTauri()) void stopRecognition();
-      else {
-        browserSpeechRef.current?.stop();
-        browserSpeechRef.current = null;
-      }
+      else stopWebRecognitionSessions();
       streamingMatchGateRef.current.reset();
       if ((!playing || !microphoneEnabled) && recognitionState === "listening") setRecognitionState("paused");
       return;
@@ -256,6 +264,42 @@ export default function App() {
         setStatusMessage(String(error));
       });
       return () => { void stopRecognition(); };
+    }
+
+    if (recognitionEngine === "whisper") {
+      if (!isLocalWhisperSupported()) {
+        setRecognitionState("error");
+        setStatusMessage("当前浏览器不支持本机音频采集，请使用最新版 Google Chrome。");
+        return;
+      }
+      const session = new LocalWhisperSession({
+        onState: (state) => {
+          setRecognitionState(state.state);
+          setStatusMessage(state.message ?? "");
+        },
+        onLevel: () => undefined,
+        onResult: (result) => followResultHandlerRef.current(result),
+      });
+      localWhisperRef.current = session;
+      let disposed = false;
+      void startLocalWhisperService()
+        .then((state) => {
+          if (disposed) return;
+          setLocalWhisperServiceState(state);
+          setLocalWhisperServiceMessage("本机 Whisper 已载入，麦克风音频会在这台 Mac 上转写。");
+          return session.start(nearbyPrompt);
+        })
+        .catch((error) => {
+          if (disposed) return;
+          setRecognitionState("error");
+          setLocalWhisperServiceState("unavailable");
+          setStatusMessage(error instanceof Error ? error.message : String(error));
+        });
+      return () => {
+        disposed = true;
+        session.stop();
+        if (localWhisperRef.current === session) localWhisperRef.current = null;
+      };
     }
 
     const session = new BrowserSpeechSession({
@@ -275,16 +319,13 @@ export default function App() {
       session.stop();
       if (browserSpeechRef.current === session) browserSpeechRef.current = null;
     };
-  }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing]);
+  }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing, recognitionEngine]);
 
   const handleOpenMicrophoneTest = () => {
     setMicrophoneTestOpen(true);
     setPlaying(false);
     if (isTauri()) void stopRecognition();
-    else {
-      browserSpeechRef.current?.stop();
-      browserSpeechRef.current = null;
-    }
+    else stopWebRecognitionSessions();
   };
 
   const refreshLocalWhisperService = useCallback(async () => {
@@ -300,27 +341,46 @@ export default function App() {
     }
   }, []);
 
-  const handleToggleLocalWhisperService = async () => {
-    if (localWhisperServiceState === "unavailable") {
-      await refreshLocalWhisperService();
-      return;
+  const ensureLocalWhisperService = async (): Promise<boolean> => {
+    if (!isLocalWhisperSupported()) {
+      setLocalWhisperServiceState("unavailable");
+      setLocalWhisperServiceMessage("当前浏览器不支持本机音频采集，请使用最新版 Google Chrome。");
+      return false;
     }
-    if (localWhisperServiceState === "checking" || localWhisperServiceState === "starting" || localWhisperServiceState === "stopping") return;
-
-    const stopping = localWhisperServiceState === "ready";
-    setLocalWhisperServiceState(stopping ? "stopping" : "starting");
-    setLocalWhisperServiceMessage("");
+    setLocalWhisperServiceState("starting");
+    setLocalWhisperServiceMessage("正在载入本机 Whisper 模型…");
     try {
-      const nextState = stopping
-        ? await stopLocalWhisperService()
-        : await startLocalWhisperService();
-      setLocalWhisperServiceState(nextState);
-      setLocalWhisperServiceMessage(stopping
-        ? "Whisper 模型已卸载，内存已释放；Chrome 语音识别不会受影响。"
-        : "Whisper 模型已载入；当前网页麦克风仍使用 Chrome 语音识别。");
+      const state = await startLocalWhisperService();
+      setLocalWhisperServiceState(state);
+      setLocalWhisperServiceMessage("本机 Whisper 已载入，麦克风音频会在这台 Mac 上转写。");
+      return true;
     } catch (error) {
       setLocalWhisperServiceState("unavailable");
-      setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 服务操作失败。");
+      setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 模型启动失败。");
+      return false;
+    }
+  };
+
+  const handleRecognitionEngineChange = async (nextEngine: RecognitionEngine) => {
+    if (isTauri() || nextEngine === recognitionEngine) return;
+    stopWebRecognitionSessions();
+    if (nextEngine === "whisper") {
+      if (!await ensureLocalWhisperService()) return;
+      setRecognitionEngine("whisper");
+      return;
+    }
+
+    setRecognitionEngine("browser");
+    if (localWhisperServiceState !== "ready") return;
+    setLocalWhisperServiceState("stopping");
+    setLocalWhisperServiceMessage("正在释放本机 Whisper 模型…");
+    try {
+      const state = await stopLocalWhisperService();
+      setLocalWhisperServiceState(state);
+      setLocalWhisperServiceMessage("已切换到 Chrome 语音识别，本机 Whisper 模型已释放。");
+    } catch (error) {
+      setLocalWhisperServiceState("unavailable");
+      setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 模型释放失败。");
     }
   };
 
@@ -338,24 +398,36 @@ export default function App() {
       return;
     }
     if (!isTauri()) {
-      if (!isBrowserSpeechSupported()) {
+      if (recognitionEngine === "browser" && !isBrowserSpeechSupported()) {
         setMicrophoneTestState("error");
         setMicrophoneTestMessage("当前浏览器不支持语音识别，请使用最新版 Google Chrome。");
         return;
       }
       try {
-        const session = new BrowserSpeechSession({
-          onState: (state) => {
+        if (recognitionEngine === "whisper" && !await ensureLocalWhisperService()) {
+          setMicrophoneTestState("error");
+          setMicrophoneTestMessage("本机 Whisper 模型未能启动。");
+          return;
+        }
+        const callbacks = {
+          onState: (state: RecognitionState) => {
             setMicrophoneTestState(state.state);
             setMicrophoneTestMessage(state.message ?? "");
           },
-          onLevel: setMicrophoneTestLevel,
-          onResult: (result) => {
+          onLevel: (level: RecognitionLevel) => setMicrophoneTestLevel(level),
+          onResult: (result: RecognitionResult) => {
             setMicrophoneTestResults((current) => mergeMicrophoneResult(current, result));
           },
-        });
-        browserSpeechRef.current = session;
-        await session.start(script, { language: "zh-CN" });
+        };
+        if (recognitionEngine === "whisper") {
+          const session = new LocalWhisperSession(callbacks);
+          localWhisperRef.current = session;
+          await session.start(script, { language: "zh-CN" });
+        } else {
+          const session = new BrowserSpeechSession(callbacks);
+          browserSpeechRef.current = session;
+          await session.start(script, { language: "zh-CN" });
+        }
       } catch (error) {
         setMicrophoneTestState("error");
         setMicrophoneTestMessage(String(error));
@@ -377,10 +449,7 @@ export default function App() {
 
   const handleStopMicrophoneTest = async () => {
     if (isTauri()) await stopMicrophoneTest();
-    else {
-      browserSpeechRef.current?.stop();
-      browserSpeechRef.current = null;
-    }
+    else stopWebRecognitionSessions();
     setMicrophoneTestState("idle");
     setMicrophoneTestMessage("");
     setMicrophoneTestLevel({ level: 0, isSpeech: false });
@@ -627,6 +696,7 @@ export default function App() {
         dimStrength={dimStrength}
         skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
+        recognitionEngine={isTauri() ? undefined : recognitionEngine}
         localWhisperServiceState={isTauri() ? undefined : localWhisperServiceState}
         localWhisperServiceMessage={localWhisperServiceMessage}
         onClose={() => setSettingsOpen(false)}
@@ -644,7 +714,7 @@ export default function App() {
           localMissStartedAtRef.current = null;
         }}
         onToggleMirror={() => setMirrored((value) => !value)}
-        onToggleLocalWhisperService={() => void handleToggleLocalWhisperService()}
+        onRecognitionEngineChange={(engine) => void handleRecognitionEngineChange(engine)}
         onMicrophoneTest={() => {
           setSettingsOpen(false);
           handleOpenMicrophoneTest();
@@ -709,7 +779,7 @@ export default function App() {
         message={microphoneTestMessage}
         level={microphoneTestLevel}
         results={microphoneTestResults}
-        recognitionEngine={isTauri() ? "本机 Whisper" : "Chrome 语音识别"}
+        recognitionEngine={isTauri() || recognitionEngine === "whisper" ? "本机 Whisper" : "Chrome 语音识别"}
         onStart={() => void handleStartMicrophoneTest()}
         onStop={() => void handleStopMicrophoneTest()}
         onClear={() => setMicrophoneTestResults([])}
