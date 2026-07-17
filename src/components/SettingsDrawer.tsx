@@ -1,5 +1,6 @@
 import {
   CaseSensitive,
+  Cpu,
   EyeOff,
   MoveVertical,
   Radio,
@@ -34,6 +35,8 @@ interface SettingsDrawerProps {
   dimStrength: number;
   skipAheadEnabled: boolean;
   mirrored: boolean;
+  localWhisperServiceState?: "ready" | "stopped" | "checking" | "starting" | "stopping" | "unavailable";
+  localWhisperServiceMessage: string;
   onClose: () => void;
   onFontSizeChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
@@ -43,6 +46,7 @@ interface SettingsDrawerProps {
   onDimStrengthChange: (value: number) => void;
   onToggleSkipAhead: () => void;
   onToggleMirror: () => void;
+  onToggleLocalWhisperService: () => void;
   onMicrophoneTest: () => void;
 }
 
@@ -90,6 +94,8 @@ export function SettingsDrawer({
   dimStrength,
   skipAheadEnabled,
   mirrored,
+  localWhisperServiceState,
+  localWhisperServiceMessage,
   onClose,
   onFontSizeChange,
   onLineHeightChange,
@@ -99,6 +105,7 @@ export function SettingsDrawer({
   onDimStrengthChange,
   onToggleSkipAhead,
   onToggleMirror,
+  onToggleLocalWhisperService,
   onMicrophoneTest,
 }: SettingsDrawerProps) {
   if (!open) return null;
@@ -193,6 +200,31 @@ export function SettingsDrawer({
           <Shuffle size={20} /> 跳读匹配
           <span>{skipAheadEnabled ? "已开启" : "顺序"}</span>
         </button>
+        {localWhisperServiceState && (
+          <section className="drawer-service" aria-label="本机 Whisper 服务">
+            <div className="drawer-service__heading">
+              <span><Cpu size={20} /> 本机 Whisper 服务</span>
+              <output className={`drawer-service__status is-${localWhisperServiceState}`}>
+                {localWhisperServiceState === "ready" ? "运行中" : localWhisperServiceState === "stopped" ? "已关闭" : localWhisperServiceState === "unavailable" ? "未连接" : "处理中"}
+              </output>
+            </div>
+            <p>
+              {localWhisperServiceMessage || (localWhisperServiceState === "ready"
+                ? "模型已载入内存。关闭后会释放模型占用；Chrome 自动跟读不受影响。"
+                : localWhisperServiceState === "stopped"
+                  ? "模型未载入，不占用 Whisper 推理内存。"
+                  : "正在检查这台 Mac 上的本机模型服务。")}
+            </p>
+            <button
+              className={`drawer-service__button ${localWhisperServiceState === "ready" ? "is-stop" : ""}`}
+              onClick={onToggleLocalWhisperService}
+              disabled={localWhisperServiceState === "checking" || localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
+            >
+              <Cpu size={19} />
+              {localWhisperServiceState === "ready" ? "关闭并释放模型" : localWhisperServiceState === "unavailable" ? "重新检测服务" : localWhisperServiceState === "starting" ? "正在启动模型…" : localWhisperServiceState === "stopping" ? "正在释放模型…" : "启动模型服务"}
+            </button>
+          </section>
+        )}
       </div>
       <footer className="settings-drawer__footer">
         <button className="drawer-microphone-test" onClick={onMicrophoneTest}>

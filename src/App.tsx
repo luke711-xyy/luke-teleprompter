@@ -10,6 +10,12 @@ import { SettingsDrawer } from "./components/SettingsDrawer";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
+import {
+  getLocalWhisperServiceStatus,
+  startLocalWhisperService,
+  stopLocalWhisperService,
+  type LocalWhisperServiceStatus,
+} from "./lib/localWhisper";
 import { findForwardMatch, MatchHysteresis, RecoveryMatchGate, StreamingMatchGate } from "./lib/matcher";
 import {
   firstSentenceToken,
@@ -44,6 +50,7 @@ import type { ModelProgress, ModelStatus, RecognitionLevel, RecognitionResult, R
 const initialSettings = loadSettings();
 const RECOVERY_AFTER_LOCAL_MISS_MS = 2500;
 const RECOVERY_MIN_FORWARD_START = 10;
+type LocalWhisperServiceUiState = LocalWhisperServiceStatus | "checking" | "starting" | "stopping" | "unavailable";
 
 function mergeMicrophoneResult(current: RecognitionResult[], result: RecognitionResult): RecognitionResult[] {
   const previous = current.at(-1);
@@ -81,6 +88,8 @@ export default function App() {
   const [microphoneTestMessage, setMicrophoneTestMessage] = useState("");
   const [microphoneTestLevel, setMicrophoneTestLevel] = useState<RecognitionLevel>({ level: 0, isSpeech: false });
   const [microphoneTestResults, setMicrophoneTestResults] = useState<RecognitionResult[]>([]);
+  const [localWhisperServiceState, setLocalWhisperServiceState] = useState<LocalWhisperServiceUiState>("checking");
+  const [localWhisperServiceMessage, setLocalWhisperServiceMessage] = useState("");
   const canvasRef = useRef<TeleprompterCanvasHandle>(null);
   const activeTokenIndexRef = useRef(activeTokenIndex);
   const manualResnapTimerRef = useRef<number | null>(null);
@@ -277,6 +286,45 @@ export default function App() {
       browserSpeechRef.current = null;
     }
   };
+
+  const refreshLocalWhisperService = useCallback(async () => {
+    if (isTauri()) return;
+    setLocalWhisperServiceState("checking");
+    setLocalWhisperServiceMessage("");
+    try {
+      const state = await getLocalWhisperServiceStatus();
+      setLocalWhisperServiceState(state);
+    } catch (error) {
+      setLocalWhisperServiceState("unavailable");
+      setLocalWhisperServiceMessage(error instanceof Error ? error.message : "未连接到这台 Mac 的 Whisper 控制服务。");
+    }
+  }, []);
+
+  const handleToggleLocalWhisperService = async () => {
+    if (localWhisperServiceState === "unavailable") {
+      await refreshLocalWhisperService();
+      return;
+    }
+    if (localWhisperServiceState === "checking" || localWhisperServiceState === "starting" || localWhisperServiceState === "stopping") return;
+
+    const stopping = localWhisperServiceState === "ready";
+    setLocalWhisperServiceState(stopping ? "stopping" : "starting");
+    setLocalWhisperServiceMessage("");
+    try {
+      const nextState = stopping
+        ? await stopLocalWhisperService()
+        : await startLocalWhisperService();
+      setLocalWhisperServiceState(nextState);
+      setLocalWhisperServiceMessage(stopping ? "Whisper 模型已卸载，内存已释放。" : "Whisper 模型已载入，可以接收本机识别请求。");
+    } catch (error) {
+      setLocalWhisperServiceState("unavailable");
+      setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 服务操作失败。");
+    }
+  };
+
+  useEffect(() => {
+    if (settingsOpen && !isTauri()) void refreshLocalWhisperService();
+  }, [refreshLocalWhisperService, settingsOpen]);
 
   const handleStartMicrophoneTest = async () => {
     setPlaying(false);
@@ -577,6 +625,8 @@ export default function App() {
         dimStrength={dimStrength}
         skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
+        localWhisperServiceState={isTauri() ? undefined : localWhisperServiceState}
+        localWhisperServiceMessage={localWhisperServiceMessage}
         onClose={() => setSettingsOpen(false)}
         onFontSizeChange={setFontSize}
         onLineHeightChange={setLineHeight}
@@ -592,6 +642,7 @@ export default function App() {
           localMissStartedAtRef.current = null;
         }}
         onToggleMirror={() => setMirrored((value) => !value)}
+        onToggleLocalWhisperService={() => void handleToggleLocalWhisperService()}
         onMicrophoneTest={() => {
           setSettingsOpen(false);
           handleOpenMicrophoneTest();

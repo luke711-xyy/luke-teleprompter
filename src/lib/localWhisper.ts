@@ -7,6 +7,14 @@ const AUDIO_WINDOW_SECONDS = 5;
 const AUDIO_BUFFER_SECONDS = 8;
 const INFERENCE_INTERVAL_MS = 1_000;
 
+export type LocalWhisperServiceStatus = "ready" | "stopped";
+
+type LocalWhisperServiceResponse = {
+  state?: LocalWhisperServiceStatus;
+  engine?: string;
+  message?: string;
+};
+
 type LocalWhisperCallbacks = {
   onState: (state: RecognitionState) => void;
   onLevel: (level: RecognitionLevel) => void;
@@ -74,6 +82,31 @@ export function isLocalWhisperSupported(): boolean {
       && "getUserMedia" in navigator.mediaDevices
       && ("AudioContext" in window || "webkitAudioContext" in window),
   );
+}
+
+async function serviceRequest(path: string, method: "GET" | "POST" = "GET"): Promise<LocalWhisperServiceResponse> {
+  const response = await fetch(`${LOCAL_WHISPER_ORIGIN}${path}`, { method });
+  const payload = await response.json() as LocalWhisperServiceResponse;
+  if (!response.ok) throw new Error(payload.message ?? "本机 Whisper 服务请求失败。");
+  return payload;
+}
+
+export async function getLocalWhisperServiceStatus(): Promise<LocalWhisperServiceStatus> {
+  const payload = await serviceRequest("/service/status");
+  if (payload.state === "ready" || payload.state === "stopped") return payload.state;
+  throw new Error("本机 Whisper 服务返回了未知状态。");
+}
+
+export async function startLocalWhisperService(): Promise<LocalWhisperServiceStatus> {
+  const payload = await serviceRequest("/service/start", "POST");
+  if (payload.state === "ready") return payload.state;
+  throw new Error("本机 Whisper 模型未能启动。");
+}
+
+export async function stopLocalWhisperService(): Promise<LocalWhisperServiceStatus> {
+  const payload = await serviceRequest("/service/stop", "POST");
+  if (payload.state === "stopped") return payload.state;
+  throw new Error("本机 Whisper 模型未能停止。");
 }
 
 export class LocalWhisperSession {

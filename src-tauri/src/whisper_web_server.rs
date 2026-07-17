@@ -21,6 +21,13 @@ struct HealthResponse {
     engine: &'static str,
 }
 
+struct WhisperRuntime {
+    // `WhisperState` uses resources owned by its context, so keep the context
+    // alive for exactly as long as the loaded model service is active.
+    _context: WhisperContext,
+    state: WhisperState,
+}
+
 #[derive(Serialize)]
 struct TranscriptionResponse {
     text: String,
@@ -51,19 +58,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into());
     }
 
-    eprintln!("正在加载本地 Whisper base：{}", model_path.display());
-    let context = WhisperContext::new_with_params(
-        model_path.to_string_lossy().as_ref(),
-        WhisperContextParameters::default(),
-    )?;
-    let mut state = context.create_state()?;
     let listener = TcpListener::bind(HOST)?;
-    eprintln!("Luke Whisper 网页服务已就绪：http://{HOST}");
+    let mut runtime = None;
+    eprintln!("Luke Whisper 网页控制服务已就绪：http://{HOST}（模型未加载）");
 
     for connection in listener.incoming() {
         match connection {
             Ok(stream) => {
-                if let Err(error) = handle_connection(stream, &mut state) {
+                if let Err(error) = handle_connection(stream, &mut runtime, &model_path) {
                     eprintln!("网页识别请求失败：{error}");
                 }
             }
@@ -71,6 +73,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+fn load_runtime(model_path: &PathBuf) -> Result<WhisperRuntime, String> {
+    eprintln!("正在加载本地 Whisper base：{}", model_path.display());
+    let context = WhisperContext::new_with_params(
+        model_path.to_string_lossy().as_ref(),
+        WhisperContextParameters::default(),
+    )
+    .map_err(|error| format!("无法加载 Whisper 模型：{error}"))?;
+    let state = context
+        .create_state()
+        .map_err(|error| format!("无法初始化 Whisper 推理状态：{error}"))?;
+    Ok(WhisperRuntime {
+        _context: context,
+        state,
+    })
 }
 
 fn default_model_path() -> PathBuf {
@@ -82,7 +100,8 @@ fn default_model_path() -> PathBuf {
 
 fn handle_connection(
     mut stream: TcpStream,
-    state: &mut WhisperState,
+    runtime: &mut Option<WhisperRuntime>,
+    model_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
     let request = read_request(&mut stream)?;
@@ -92,14 +111,60 @@ fn handle_connection(
             &mut stream,
             200,
             &HealthResponse {
-                state: "ready",
+                state: service_state(runtime),
                 engine: "whisper.cpp base + Metal",
             },
         ),
+        ("GET", "/service/status") => write_json(
+            &mut stream,
+            200,
+            &HealthResponse {
+                state: service_state(runtime),
+                engine: "whisper.cpp base + Metal",
+            },
+        ),
+        ("POST", "/service/start") => {
+            if runtime.is_none() {
+                match load_runtime(model_path) {
+                    Ok(loaded) => *runtime = Some(loaded),
+                    Err(message) => return write_json(&mut stream, 500, &ErrorResponse { message }),
+                }
+            }
+            write_json(
+                &mut stream,
+                200,
+                &HealthResponse {
+                    state: service_state(runtime),
+                    engine: "whisper.cpp base + Metal",
+                },
+            )
+        }
+        ("POST", "/service/stop") => {
+            if runtime.take().is_some() {
+                eprintln!("Whisper 模型已卸载，Metal / 内存资源已释放。");
+            }
+            write_json(
+                &mut stream,
+                200,
+                &HealthResponse {
+                    state: service_state(runtime),
+                    engine: "whisper.cpp base + Metal",
+                },
+            )
+        }
         ("POST", target) if target.starts_with("/transcribe") => {
             let prompt = query_value(target, "prompt").unwrap_or_default();
             let language = query_value(target, "language").unwrap_or_else(|| "auto".into());
-            match transcribe(state, &request.body, &prompt, &language) {
+            let Some(runtime) = runtime.as_mut() else {
+                return write_json(
+                    &mut stream,
+                    503,
+                    &ErrorResponse {
+                        message: "本机 Whisper 模型目前已关闭。请在网页设置中启动模型服务后重试。".into(),
+                    },
+                );
+            };
+            match transcribe(&mut runtime.state, &request.body, &prompt, &language) {
                 Ok(response) => write_json(&mut stream, 200, &response),
                 Err(message) => write_json(&mut stream, 400, &ErrorResponse { message }),
             }
@@ -112,6 +177,10 @@ fn handle_connection(
             },
         ),
     }
+}
+
+fn service_state(runtime: &Option<WhisperRuntime>) -> &'static str {
+    if runtime.is_some() { "ready" } else { "stopped" }
 }
 
 fn transcribe(
@@ -281,12 +350,14 @@ fn write_response(
         204 => "No Content",
         400 => "Bad Request",
         404 => "Not Found",
+        500 => "Internal Server Error",
+        503 => "Service Unavailable",
         _ => "Internal Server Error",
     };
     let content_type = content_type.unwrap_or("text/plain; charset=utf-8");
     write!(
         stream,
-        "HTTP/1.1 {status} {status_text}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status} {status_text}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nAccess-Control-Allow-Private-Network: true\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )?;
     stream.flush()?;

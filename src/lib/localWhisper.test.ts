@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { resampleLinear, selectWhisperLanguage, tailAudioWindow } from "./localWhisper";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  getLocalWhisperServiceStatus,
+  resampleLinear,
+  selectWhisperLanguage,
+  startLocalWhisperService,
+  stopLocalWhisperService,
+  tailAudioWindow,
+} from "./localWhisper";
 
 describe("local Whisper audio preparation", () => {
   it("keeps the most recent fixed-duration PCM window", () => {
@@ -17,5 +24,25 @@ describe("local Whisper audio preparation", () => {
   it("selects a Whisper language hint from the nearby script", () => {
     expect(selectWhisperLanguage("今天介绍 this product")).toBe("chinese");
     expect(selectWhisperLanguage("This is an English-only script.")).toBe("english");
+  });
+});
+
+describe("local Whisper service controls", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("checks, starts, and stops the lightweight local service manager", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ state: "stopped" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ state: "ready" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ state: "stopped" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getLocalWhisperServiceStatus()).resolves.toBe("stopped");
+    await expect(startLocalWhisperService()).resolves.toBe("ready");
+    await expect(stopLocalWhisperService()).resolves.toBe("stopped");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://127.0.0.1:8788/service/status", { method: "GET" });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://127.0.0.1:8788/service/start", { method: "POST" });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "http://127.0.0.1:8788/service/stop", { method: "POST" });
   });
 });
