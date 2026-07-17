@@ -315,7 +315,9 @@ export default function App() {
         ? await stopLocalWhisperService()
         : await startLocalWhisperService();
       setLocalWhisperServiceState(nextState);
-      setLocalWhisperServiceMessage(stopping ? "Whisper 模型已卸载，内存已释放。" : "Whisper 模型已载入，可以接收本机识别请求。");
+      setLocalWhisperServiceMessage(stopping
+        ? "Whisper 模型已卸载，内存已释放；Chrome 语音识别不会受影响。"
+        : "Whisper 模型已载入；当前网页麦克风仍使用 Chrome 语音识别。");
     } catch (error) {
       setLocalWhisperServiceState("unavailable");
       setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 服务操作失败。");
@@ -707,6 +709,7 @@ export default function App() {
         message={microphoneTestMessage}
         level={microphoneTestLevel}
         results={microphoneTestResults}
+        recognitionEngine={isTauri() ? "本机 Whisper" : "Chrome 语音识别"}
         onStart={() => void handleStartMicrophoneTest()}
         onStop={() => void handleStopMicrophoneTest()}
         onClear={() => setMicrophoneTestResults([])}

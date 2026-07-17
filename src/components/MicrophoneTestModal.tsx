@@ -8,6 +8,7 @@ interface MicrophoneTestModalProps {
   message: string;
   level: RecognitionLevel;
   results: RecognitionResult[];
+  recognitionEngine: string;
   onStart: () => void;
   onStop: () => void;
   onClear: () => void;
@@ -29,6 +30,7 @@ export function MicrophoneTestModal({
   message,
   level,
   results,
+  recognitionEngine,
   onStart,
   onStop,
   onClear,
@@ -46,7 +48,7 @@ export function MicrophoneTestModal({
         <header className="microphone-test-modal__header">
           <div>
             <h2 id="microphone-test-title">麦克风测试</h2>
-            <p>{message || "说一段中文或 English，下面会显示实时识别结果。"}</p>
+            <p>{message || `当前使用${recognitionEngine}。说一段中文或 English，下面会显示实时识别结果。`}</p>
           </div>
           <button className="close-button" onClick={onClose} aria-label="关闭麦克风测试">
             <X size={20} />

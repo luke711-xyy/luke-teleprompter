@@ -201,18 +201,18 @@ export function SettingsDrawer({
           <span>{skipAheadEnabled ? "已开启" : "顺序"}</span>
         </button>
         {localWhisperServiceState && (
-          <section className="drawer-service" aria-label="本机 Whisper 服务">
+          <section className="drawer-service" aria-label="可选本机 Whisper 模型">
             <div className="drawer-service__heading">
-              <span><Cpu size={20} /> 本机 Whisper 服务</span>
+              <span><Cpu size={20} /> 可选本机 Whisper 模型</span>
               <output className={`drawer-service__status is-${localWhisperServiceState}`}>
-                {localWhisperServiceState === "ready" ? "运行中" : localWhisperServiceState === "stopped" ? "已关闭" : localWhisperServiceState === "unavailable" ? "未连接" : "处理中"}
+                {localWhisperServiceState === "ready" ? "已载入" : localWhisperServiceState === "stopped" ? "未载入" : localWhisperServiceState === "unavailable" ? "未连接" : "处理中"}
               </output>
             </div>
             <p>
               {localWhisperServiceMessage || (localWhisperServiceState === "ready"
-                ? "模型已载入内存。关闭后会释放模型占用；Chrome 自动跟读不受影响。"
+                ? "模型已载入内存。当前网页版仍使用 Chrome 语音识别；关闭这里只会释放可选 Whisper 模型，不会关闭麦克风。"
                 : localWhisperServiceState === "stopped"
-                  ? "模型未载入，不占用 Whisper 推理内存。"
+                  ? "模型未载入，不占用 Whisper 推理内存。网页麦克风仍可用，因为它走 Chrome 语音识别。"
                   : "正在检查这台 Mac 上的本机模型服务。")}
             </p>
             <button
