@@ -20,7 +20,9 @@ function isAllowedOrigin(origin: string | null, config: TranscriptionConfig): or
   if (LOCAL_ORIGINS.has(origin)) return true;
   try {
     const url = new URL(origin);
-    return url.protocol === "https:" && url.hostname.endsWith(config.pagesOriginSuffix);
+    const productionHostname = config.pagesOriginSuffix.replace(/^\./, "");
+    return url.protocol === "https:"
+      && (url.hostname === productionHostname || url.hostname.endsWith(config.pagesOriginSuffix));
   } catch {
     return false;
   }

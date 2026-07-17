@@ -23,6 +23,19 @@ describe("Cloudflare transcription handler", () => {
     expect(ai.run).toHaveBeenCalledWith("@cf/openai/whisper-large-v3-turbo", expect.objectContaining({ language: "zh", task: "transcribe" }));
   });
 
+  it("allows the production Pages origin", async () => {
+    const productionOrigin = "https://luke-teleprompter.pages.dev";
+    const request = new Request("https://worker.example/v1/transcribe?language=zh-CN", {
+      method: "POST",
+      headers: { Origin: productionOrigin, "Content-Type": "audio/wav" },
+      body: new Uint8Array(3_200),
+    });
+    const response = await handleTranscriptionRequest(request, { run: vi.fn(async () => ({ text: "你好" })) }, config);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(productionOrigin);
+  });
+
   it("rejects untrusted origins and oversized audio before invoking the model", async () => {
     const ai: AiRunner = { run: vi.fn() };
     const rejected = await handleTranscriptionRequest(new Request("https://worker.example/v1/transcribe", {
