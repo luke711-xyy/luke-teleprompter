@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "luke-teleprompter-transcription-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-17",
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "ALLOWED_ORIGIN_SUFFIX": ".luke-teleprompter.pages.dev"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

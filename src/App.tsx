@@ -10,6 +10,7 @@ import { SettingsDrawer } from "./components/SettingsDrawer";
 import { TeleprompterCanvas, type TeleprompterCanvasHandle } from "./components/TeleprompterCanvas";
 import { TopBar } from "./components/TopBar";
 import { BrowserSpeechSession, isBrowserSpeechSupported } from "./lib/browserSpeech";
+import { CloudTranscriptionSession, isCloudTranscriptionConfigured } from "./lib/cloudTranscription";
 import {
   getLocalWhisperServiceStatus,
   isLocalWhisperSupported,
@@ -77,6 +78,7 @@ export default function App() {
   const [playing, setPlaying] = useState(true);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [recognitionEngine, setRecognitionEngine] = useState<RecognitionEngine>(initialSettings.recognitionEngine);
+  const [autoFallbackToCloud, setAutoFallbackToCloud] = useState(false);
   const [chineseCharactersPerLine, setChineseCharactersPerLine] = useState(20);
   const [fullscreen, setFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -103,15 +105,22 @@ export default function App() {
   const streamingMatchGateRef = useRef(new StreamingMatchGate());
   const localMissStartedAtRef = useRef<number | null>(null);
   const browserSpeechRef = useRef<BrowserSpeechSession | null>(null);
+  const cloudTranscriptionRef = useRef<CloudTranscriptionSession | null>(null);
   const localWhisperRef = useRef<LocalWhisperSession | null>(null);
   const followResultHandlerRef = useRef<(result: RecognitionResult) => void>(() => undefined);
 
   const document = useMemo(() => parseScript(script), [script]);
+  const cloudTranscriptionConfigured = isCloudTranscriptionConfigured();
+  const activeRecognitionEngine: Exclude<RecognitionEngine, "auto"> = isTauri()
+    ? "whisper"
+    : recognitionEngine === "auto"
+      ? (autoFallbackToCloud || !isBrowserSpeechSupported()) && cloudTranscriptionConfigured ? "cloud" : "browser"
+      : recognitionEngine;
   activeTokenIndexRef.current = activeTokenIndex;
 
   followResultHandlerRef.current = (result) => {
     if (!playing || !microphoneEnabled || mode !== "follow") return;
-    const nativeRecognition = isTauri() || recognitionEngine === "whisper";
+    const nativeRecognition = activeRecognitionEngine === "whisper" || activeRecognitionEngine === "cloud";
     if (nativeRecognition && !result.isFinal) return;
     const currentSearchableIndex = currentSearchableRef.current;
     const localCandidate = findForwardMatch(
@@ -245,6 +254,8 @@ export default function App() {
   const stopWebRecognitionSessions = () => {
     browserSpeechRef.current?.stop();
     browserSpeechRef.current = null;
+    cloudTranscriptionRef.current?.stop();
+    cloudTranscriptionRef.current = null;
     localWhisperRef.current?.stop();
     localWhisperRef.current = null;
   };
@@ -266,7 +277,7 @@ export default function App() {
       return () => { void stopRecognition(); };
     }
 
-    if (recognitionEngine === "whisper") {
+    if (activeRecognitionEngine === "whisper") {
       if (!isLocalWhisperSupported()) {
         setRecognitionState("error");
         setStatusMessage("当前浏览器不支持本机音频采集，请使用最新版 Google Chrome。");
@@ -302,6 +313,31 @@ export default function App() {
       };
     }
 
+    if (activeRecognitionEngine === "cloud") {
+      if (!cloudTranscriptionConfigured) {
+        setRecognitionState("error");
+        setStatusMessage("此设备不支持浏览器语音识别，且 Cloudflare 转写服务尚未配置。");
+        return;
+      }
+      const session = new CloudTranscriptionSession({
+        onState: (state) => {
+          setRecognitionState(state.state);
+          setStatusMessage(state.message ?? "");
+        },
+        onLevel: () => undefined,
+        onResult: (result) => followResultHandlerRef.current(result),
+      });
+      cloudTranscriptionRef.current = session;
+      void session.start(nearbyPrompt).catch((error) => {
+        setRecognitionState("error");
+        setStatusMessage(error instanceof Error ? error.message : String(error));
+      });
+      return () => {
+        session.stop();
+        if (cloudTranscriptionRef.current === session) cloudTranscriptionRef.current = null;
+      };
+    }
+
     const session = new BrowserSpeechSession({
       onState: (state) => {
         setRecognitionState(state.state);
@@ -309,6 +345,12 @@ export default function App() {
       },
       onLevel: () => undefined,
       onResult: (result) => followResultHandlerRef.current(result),
+      onRecoverableError: () => {
+        if (recognitionEngine === "auto" && cloudTranscriptionConfigured) {
+          setStatusMessage("Chrome 识别不可用，已切换到 Cloudflare 转写。");
+          setAutoFallbackToCloud(true);
+        }
+      },
     });
     browserSpeechRef.current = session;
     void session.start(nearbyPrompt).catch((error) => {
@@ -319,7 +361,7 @@ export default function App() {
       session.stop();
       if (browserSpeechRef.current === session) browserSpeechRef.current = null;
     };
-  }, [editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing, recognitionEngine]);
+  }, [activeRecognitionEngine, cloudTranscriptionConfigured, editorOpen, microphoneEnabled, microphoneTestOpen, mode, modelStatus.state, playing, recognitionEngine]);
 
   const handleOpenMicrophoneTest = () => {
     setMicrophoneTestOpen(true);
@@ -361,27 +403,39 @@ export default function App() {
     }
   };
 
-  const handleRecognitionEngineChange = async (nextEngine: RecognitionEngine) => {
-    if (isTauri() || nextEngine === recognitionEngine) return;
-    stopWebRecognitionSessions();
-    if (nextEngine === "whisper") {
-      if (!await ensureLocalWhisperService()) return;
-      setRecognitionEngine("whisper");
-      return;
-    }
-
-    setRecognitionEngine("browser");
+  const releaseLocalWhisperService = async (message: string) => {
     if (localWhisperServiceState !== "ready") return;
     setLocalWhisperServiceState("stopping");
     setLocalWhisperServiceMessage("正在释放本机 Whisper 模型…");
     try {
       const state = await stopLocalWhisperService();
       setLocalWhisperServiceState(state);
-      setLocalWhisperServiceMessage("已切换到 Chrome 语音识别，本机 Whisper 模型已释放。");
+      setLocalWhisperServiceMessage(message);
     } catch (error) {
       setLocalWhisperServiceState("unavailable");
       setLocalWhisperServiceMessage(error instanceof Error ? error.message : "本机 Whisper 模型释放失败。");
     }
+  };
+
+  const handleRecognitionEngineChange = async (nextEngine: RecognitionEngine) => {
+    if (isTauri() || nextEngine === recognitionEngine) return;
+    stopWebRecognitionSessions();
+    setAutoFallbackToCloud(false);
+    if (nextEngine === "whisper") {
+      if (!await ensureLocalWhisperService()) return;
+      setRecognitionEngine("whisper");
+      return;
+    }
+    if (nextEngine === "cloud" && !cloudTranscriptionConfigured) {
+      setLocalWhisperServiceMessage("Cloudflare 转写服务尚未配置，暂时无法切换。");
+      return;
+    }
+    setRecognitionEngine(nextEngine);
+    await releaseLocalWhisperService(nextEngine === "cloud"
+      ? "已切换到 Cloudflare 转写，本机 Whisper 模型已释放。"
+      : nextEngine === "auto"
+        ? "自动模式会优先使用 Chrome；需要时自动转为 Cloudflare 转写。"
+        : "已切换到 Chrome 语音识别，本机 Whisper 模型已释放。");
   };
 
   useEffect(() => {
@@ -398,13 +452,13 @@ export default function App() {
       return;
     }
     if (!isTauri()) {
-      if (recognitionEngine === "browser" && !isBrowserSpeechSupported()) {
+      if (activeRecognitionEngine === "browser" && !isBrowserSpeechSupported()) {
         setMicrophoneTestState("error");
         setMicrophoneTestMessage("当前浏览器不支持语音识别，请使用最新版 Google Chrome。");
         return;
       }
       try {
-        if (recognitionEngine === "whisper" && !await ensureLocalWhisperService()) {
+        if (activeRecognitionEngine === "whisper" && !await ensureLocalWhisperService()) {
           setMicrophoneTestState("error");
           setMicrophoneTestMessage("本机 Whisper 模型未能启动。");
           return;
@@ -419,12 +473,30 @@ export default function App() {
             setMicrophoneTestResults((current) => mergeMicrophoneResult(current, result));
           },
         };
-        if (recognitionEngine === "whisper") {
+        const startCloudTest = async () => {
+          const session = new CloudTranscriptionSession(callbacks);
+          cloudTranscriptionRef.current = session;
+          await session.start(script, { language: "zh-CN" });
+        };
+        if (activeRecognitionEngine === "whisper") {
           const session = new LocalWhisperSession(callbacks);
           localWhisperRef.current = session;
           await session.start(script, { language: "zh-CN" });
+        } else if (activeRecognitionEngine === "cloud") {
+          await startCloudTest();
         } else {
-          const session = new BrowserSpeechSession(callbacks);
+          const session = new BrowserSpeechSession({
+            ...callbacks,
+            onRecoverableError: () => {
+              if (recognitionEngine !== "auto" || !cloudTranscriptionConfigured) return;
+              setAutoFallbackToCloud(true);
+              setMicrophoneTestMessage("Chrome 识别不可用，已切换到 Cloudflare 转写。");
+              void startCloudTest().catch((error) => {
+                setMicrophoneTestState("error");
+                setMicrophoneTestMessage(error instanceof Error ? error.message : String(error));
+              });
+            },
+          });
           browserSpeechRef.current = session;
           await session.start(script, { language: "zh-CN" });
         }
@@ -633,7 +705,10 @@ export default function App() {
         <button
           className={`chrome-toggle-button microphone-toggle-button ${microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "is-live" : ""}`}
           type="button"
-          onClick={() => setMicrophoneEnabled((value) => !value)}
+          onClick={() => setMicrophoneEnabled((value) => {
+            if (!value) setAutoFallbackToCloud(false);
+            return !value;
+          })}
           aria-pressed={microphoneEnabled}
           aria-label={microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
           title={microphoneEnabled && mode === "follow" && recognitionState === "listening" ? "麦克风正在收音；点击关闭" : microphoneEnabled ? "关闭麦克风" : "开启麦克风"}
@@ -697,6 +772,7 @@ export default function App() {
         skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
         recognitionEngine={isTauri() ? undefined : recognitionEngine}
+        cloudTranscriptionConfigured={cloudTranscriptionConfigured}
         localWhisperServiceState={isTauri() ? undefined : localWhisperServiceState}
         localWhisperServiceMessage={localWhisperServiceMessage}
         onClose={() => setSettingsOpen(false)}
@@ -779,7 +855,13 @@ export default function App() {
         message={microphoneTestMessage}
         level={microphoneTestLevel}
         results={microphoneTestResults}
-        recognitionEngine={isTauri() || recognitionEngine === "whisper" ? "本机 Whisper" : "Chrome 语音识别"}
+        recognitionEngine={isTauri() || activeRecognitionEngine === "whisper"
+          ? "本机 Whisper"
+          : activeRecognitionEngine === "cloud"
+            ? "Cloudflare 转写"
+            : recognitionEngine === "auto"
+              ? "自动（Chrome 语音识别）"
+              : "Chrome 语音识别"}
         onStart={() => void handleStartMicrophoneTest()}
         onStop={() => void handleStopMicrophoneTest()}
         onClear={() => setMicrophoneTestResults([])}

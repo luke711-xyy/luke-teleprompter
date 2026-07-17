@@ -42,6 +42,7 @@ type BrowserSpeechCallbacks = {
   onState: (state: RecognitionState) => void;
   onLevel: (level: RecognitionLevel) => void;
   onResult: (result: RecognitionResult) => void;
+  onRecoverableError?: (error: "network" | "language-not-supported" | "service-not-allowed") => void;
 };
 
 type BrowserSpeechStartOptions = {
@@ -199,6 +200,12 @@ export class BrowserSpeechSession {
       recognition.onerror = (event) => {
         if (event.error === "no-speech" || event.error === "aborted") return;
         const message = recognitionErrorMessage(event.error);
+        if ((event.error === "network" || event.error === "language-not-supported" || event.error === "service-not-allowed") && this.callbacks.onRecoverableError) {
+          this.running = false;
+          this.releaseAudio();
+          this.callbacks.onRecoverableError(event.error);
+          return;
+        }
         if (event.error === "network") {
           this.callbacks.onState({ state: "loading", message: `${message} 正在自动重试…` });
           this.scheduleRestart(recognition, 1200);

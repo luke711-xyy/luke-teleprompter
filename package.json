@@ -8,6 +8,8 @@
     "web": "vite --host 127.0.0.1 --open",
     "build": "tsc -b && vite build",
     "deploy:web": "npm run build && wrangler pages deploy dist --project-name luke-teleprompter --branch main",
+    "deploy:cloud-worker": "wrangler deploy --config workers/transcription/wrangler.jsonc",
+    "test:cloud-worker": "vitest run workers/transcription/test/handler.test.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
