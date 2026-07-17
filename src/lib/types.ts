@@ -1,5 +1,5 @@
 export type ScrollMode = "follow" | "steady";
-export type RecognitionEngine = "browser" | "whisper";
+export type RecognitionEngine = "auto" | "browser" | "cloud" | "whisper";
 
 export type TokenKind = "latin" | "cjk" | "space" | "linebreak" | "punctuation" | "cue";
 

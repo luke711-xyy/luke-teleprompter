@@ -37,6 +37,7 @@ interface SettingsDrawerProps {
   skipAheadEnabled: boolean;
   mirrored: boolean;
   recognitionEngine?: RecognitionEngine;
+  cloudTranscriptionConfigured: boolean;
   localWhisperServiceState?: "ready" | "stopped" | "checking" | "starting" | "stopping" | "unavailable";
   localWhisperServiceMessage: string;
   onClose: () => void;
@@ -97,6 +98,7 @@ export function SettingsDrawer({
   skipAheadEnabled,
   mirrored,
   recognitionEngine,
+  cloudTranscriptionConfigured,
   localWhisperServiceState,
   localWhisperServiceMessage,
   onClose,
@@ -208,10 +210,18 @@ export function SettingsDrawer({
             <div className="drawer-service__heading">
               <span><Cpu size={20} /> 识别方式</span>
               <output className={`drawer-service__status is-${localWhisperServiceState}`}>
-                {recognitionEngine === "browser" ? "Chrome" : localWhisperServiceState === "ready" ? "本机 Whisper" : "处理中"}
+                {recognitionEngine === "auto" ? "自动" : recognitionEngine === "browser" ? "Chrome" : recognitionEngine === "cloud" ? "Cloudflare" : localWhisperServiceState === "ready" ? "本机 Whisper" : "处理中"}
               </output>
             </div>
             <div className="drawer-engine-picker" role="group" aria-label="选择识别方式">
+              <button
+                className={recognitionEngine === "auto" ? "is-active" : ""}
+                onClick={() => onRecognitionEngineChange("auto")}
+                aria-pressed={recognitionEngine === "auto"}
+                disabled={localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
+              >
+                自动
+              </button>
               <button
                 className={recognitionEngine === "browser" ? "is-active" : ""}
                 onClick={() => onRecognitionEngineChange("browser")}
@@ -219,6 +229,15 @@ export function SettingsDrawer({
                 disabled={localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
               >
                 Chrome 语音识别
+              </button>
+              <button
+                className={recognitionEngine === "cloud" ? "is-active" : ""}
+                onClick={() => onRecognitionEngineChange("cloud")}
+                aria-pressed={recognitionEngine === "cloud"}
+                disabled={!cloudTranscriptionConfigured || localWhisperServiceState === "starting" || localWhisperServiceState === "stopping"}
+                title={cloudTranscriptionConfigured ? "使用 Cloudflare 云端转写" : "此部署尚未配置 Cloudflare 转写服务"}
+              >
+                Cloudflare 转写
               </button>
               <button
                 className={recognitionEngine === "whisper" ? "is-active" : ""}
@@ -230,7 +249,13 @@ export function SettingsDrawer({
               </button>
             </div>
             <p>
-              {localWhisperServiceMessage || (recognitionEngine === "whisper"
+              {localWhisperServiceMessage || (recognitionEngine === "auto"
+                ? cloudTranscriptionConfigured
+                  ? "优先使用 Chrome；当前设备不支持或连接失败时自动切换 Cloudflare 转写。"
+                  : "优先使用 Chrome。此部署尚未配置 Cloudflare 转写兜底。"
+                : recognitionEngine === "cloud"
+                  ? "音频以短片段发送到 Cloudflare 转写；文稿匹配和滚动仍在本机浏览器完成。"
+                : recognitionEngine === "whisper"
                 ? "麦克风音频正在本机转写；切回 Chrome 会自动卸载 Whisper 模型并释放内存。"
                 : "使用 Chrome 的实时语音识别。本机 Whisper 模型未参与识别，也不会占用推理内存。")}
             </p>

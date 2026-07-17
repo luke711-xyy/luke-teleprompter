@@ -9,8 +9,14 @@ const browserSpeechMock = vi.hoisted(() => ({
   emitFinalRecognition: true,
   recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
   emit: undefined as ((text: string, isFinal: boolean) => void) | undefined,
+  recoverable: undefined as (() => void) | undefined,
 }));
 const localWhisperMock = vi.hoisted(() => ({
+  starts: [] as Array<{ prompt: string; options: { language?: string } }>,
+  stops: 0,
+  recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
+}));
+const cloudTranscriptionMock = vi.hoisted(() => ({
   starts: [] as Array<{ prompt: string; options: { language?: string } }>,
   stops: 0,
   recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
@@ -32,6 +38,7 @@ vi.mock("./lib/browserSpeech", () => {
       onState: (state: { state: "loading" | "listening" | "error"; message?: string }) => void;
       onLevel: (level: { level: number; isSpeech: boolean }) => void;
       onResult: (result: { text: string; detectedLanguage: string; confidence: number; isFinal: boolean }) => void;
+      onRecoverableError?: (error: "network" | "language-not-supported" | "service-not-allowed") => void;
     }) {}
 
     async start(prompt = "", options: { language?: string } = {}) {
@@ -46,6 +53,7 @@ vi.mock("./lib/browserSpeech", () => {
           isFinal,
         });
       };
+      browserSpeechMock.recoverable = () => this.callbacks.onRecoverableError?.("network");
       browserSpeechMock.emit(browserSpeechMock.recognizedPhrase, false);
       if (browserSpeechMock.emitFinalRecognition) browserSpeechMock.emit(browserSpeechMock.recognizedPhrase, true);
     }
@@ -54,6 +62,34 @@ vi.mock("./lib/browserSpeech", () => {
   }
 
   return { BrowserSpeechSession: MockBrowserSpeechSession, isBrowserSpeechSupported: () => true };
+});
+
+vi.mock("./lib/cloudTranscription", () => {
+  class MockCloudTranscriptionSession {
+    constructor(private readonly callbacks: {
+      onState: (state: { state: "loading" | "listening" | "error"; message?: string }) => void;
+      onLevel: (level: { level: number; isSpeech: boolean }) => void;
+      onResult: (result: { text: string; detectedLanguage: string; confidence: number; isFinal: boolean }) => void;
+    }) {}
+
+    async start(prompt = "", options: { language?: string } = {}) {
+      cloudTranscriptionMock.starts.push({ prompt, options });
+      this.callbacks.onState({ state: "listening", message: "Cloudflare 正在识别中文 / English" });
+      this.callbacks.onLevel({ level: 0.2, isSpeech: true });
+      this.callbacks.onResult({
+        text: cloudTranscriptionMock.recognizedPhrase,
+        detectedLanguage: "chinese",
+        confidence: 0.8,
+        isFinal: true,
+      });
+    }
+
+    stop() {
+      cloudTranscriptionMock.stops += 1;
+    }
+  }
+
+  return { CloudTranscriptionSession: MockCloudTranscriptionSession, isCloudTranscriptionConfigured: () => true };
 });
 
 vi.mock("./lib/localWhisper", () => {
@@ -96,9 +132,13 @@ describe("microphone test panel", () => {
     browserSpeechMock.emitFinalRecognition = true;
     browserSpeechMock.recognizedPhrase = localRecognizedPhrase;
     browserSpeechMock.emit = undefined;
+    browserSpeechMock.recoverable = undefined;
     localWhisperMock.starts = [];
     localWhisperMock.stops = 0;
     localWhisperMock.recognizedPhrase = localRecognizedPhrase;
+    cloudTranscriptionMock.starts = [];
+    cloudTranscriptionMock.stops = 0;
+    cloudTranscriptionMock.recognizedPhrase = localRecognizedPhrase;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,
@@ -176,6 +216,30 @@ describe("microphone test panel", () => {
     fireEvent.click(screen.getByRole("button", { name: /开始测试/ }));
     await waitFor(() => expect(localWhisperMock.starts).toHaveLength(1));
     expect(screen.getByText("chinese · 80%")).toBeInTheDocument();
+  });
+
+  it("switches the microphone test to Cloudflare transcription when selected", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cloudflare 转写" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cloudflare 转写" })).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.click(screen.getByRole("button", { name: /麦克风测试/ }));
+
+    expect(screen.getByText("当前识别方式：Cloudflare 转写")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /开始测试/ }));
+    await waitFor(() => expect(cloudTranscriptionMock.starts).toHaveLength(1));
+    expect(screen.getByText("chinese · 80%")).toBeInTheDocument();
+  });
+
+  it("automatically falls back from Chrome to Cloudflare for following", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
+    await waitFor(() => expect(browserSpeechMock.starts).toHaveLength(1));
+
+    await act(async () => browserSpeechMock.recoverable?.());
+
+    await waitFor(() => expect(cloudTranscriptionMock.starts).toHaveLength(1));
   });
 
   it("advances the browser teleprompter from one Chrome final recognition result", async () => {
