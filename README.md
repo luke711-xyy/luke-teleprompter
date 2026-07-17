@@ -1,6 +1,6 @@
 # Luke Teleprompter
 
-中文 / English 智能提词器。网页在本机模式下会把 Chrome 捕获的麦克风 PCM 音频发送到 `127.0.0.1`，由 Rust + whisper.cpp / Metal 使用本机 Whisper base 模型完成转写；原稿不会被转写结果改写。原来的 macOS Tauri 版本仍保留在项目中。
+中文 / English 智能提词器。网页端使用 Chrome 的连续语音识别流接收临时与最终转写，并用原稿约束匹配来推进提词位置；原稿不会被转写结果改写。macOS Tauri 版本仍使用本机 Whisper base 模型。
 
 ## 功能
 
@@ -15,33 +15,22 @@
 - 阅读位置可在屏幕高度的 `30%–70%` 间调整，并与其他设置一起自动保存
 - 手机竖屏会显示横屏入口；手机横屏会切换为紧凑控制栏
 - 文稿和所有阅读设置自动保存在本机
-- 网页版本机模式复用已经下载的 Whisper base 模型，麦克风权限由 Google Chrome 管理
+- 网页端在用户点击麦克风按钮后才申请 Chrome 麦克风权限；无需启动本机服务
 
-## 在 Chrome 中使用：本机 Whisper 模式
+## 在 Chrome 中使用：连续语音识别
 
-先启动本机转写服务，再启动网页：
-
-```bash
-cd /Users/huazhi_luke/luke-projects/luke-teleprompter
-npm run whisper:web
-```
-
-另开一个终端窗口：
+启动网页：
 
 ```bash
 cd /Users/huazhi_luke/luke-projects/luke-teleprompter
 npm run web
 ```
 
-浏览器打开 `http://127.0.0.1:1420` 后，点击“允许”授予 Google Chrome 麦克风权限。网页必须通过 `localhost`/`127.0.0.1` 或 HTTPS 打开，不能直接双击 `index.html`。
+浏览器打开 `http://127.0.0.1:1420` 后，点击右上角的麦克风按钮，再在 Chrome 权限提示中选择“允许”。网页必须通过 `localhost`/`127.0.0.1` 或 HTTPS 打开，不能直接双击 `index.html`。
 
-`npm run whisper:web` 会复用：
+该路径保持一条 Chrome `SpeechRecognition` 连续会话：高分临时结果会立即跟读，较弱的临时结果需要相邻的下一次结果确认，最终结果立即确认。它不向 `127.0.0.1` 发送 PCM，也不需要 `npm run whisper:web`。
 
-```text
-~/Library/Application Support/com.luke.teleprompter/models/ggml-base.bin
-```
-
-没有运行该服务时，网页会显示启动提示；音频不会发送到外网。此分支当前只面向同一台 Mac，本机服务仅监听 `127.0.0.1`，因此不会支持 iPad / 手机访问。
+Chrome 语音识别依赖浏览器服务和网络连接；若需要完全离线的本机 Whisper，请使用 Tauri 桌面版。
 
 ## 在 iPad 和手机上使用
 
@@ -57,7 +46,7 @@ npm run web
 
 浏览器的横屏锁定能力不一致：Android Chrome 通常支持点击后进入全屏横屏；iPhone/iPad Safari 往往不允许网页强制旋转，只能显示提示并由用户手动横屏。
 
-建议直接保留在 Safari 普通标签页中使用。WebKit 的 `SpeechRecognition` 在添加到主屏幕后的独立 Web App 中仍可能不可用，因此暂不建议把它当作 PWA 启动。移动设备上的文稿、字号和阅读位置存储在当前浏览器本机，不会与 Mac 自动同步。
+为获得完整连续识别能力，建议优先使用桌面 Chrome。iPad/iPhone 浏览器对 Web Speech API 的支持会随浏览器和系统版本变化；移动设备上的文稿、字号和阅读位置存储在当前浏览器本机，不会与 Mac 自动同步。
 
 ## 发布网页版
 
@@ -67,7 +56,7 @@ npm run web
 npm run deploy:web
 ```
 
-该命令会先构建网页，再把 `dist` 上传到 `luke-teleprompter.pages.dev`。GitHub 仓库保持私有。注意：本机 Whisper 分支当前不部署到正式站；它依赖同一台 Mac 上运行的 `npm run whisper:web`。
+该命令会先构建网页，再把 `dist` 上传到 `luke-teleprompter.pages.dev`。GitHub 仓库保持私有。
 
 ## 开发
 
@@ -78,13 +67,7 @@ npm install
 npm run tauri dev
 ```
 
-启动本机 Whisper 网页版：
-
-```bash
-npm run whisper:web
-```
-
-另开一个终端：
+启动网页开发服务器：
 
 ```bash
 npm run web
