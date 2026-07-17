@@ -7,6 +7,7 @@ const AUDIO_WINDOW_SECONDS = 5;
 const AUDIO_BUFFER_SECONDS = 8;
 const INFERENCE_INTERVAL_MS = 1_000;
 const TRANSIENT_RETRY_MS = 2_000;
+const CLOUD_REQUEST_TIMEOUT_MS = 12_000;
 
 export type CloudTranscriptionCallbacks = {
   onState: (state: RecognitionState) => void;
@@ -56,6 +57,17 @@ export function cloudFailureInfo(status: number | null, responseBody: string): C
     retryAfterMs: TRANSIENT_RETRY_MS,
     message: "Cloudflare 转写服务正在重试，请继续说话。",
   };
+}
+
+export function cloudTransportFailureInfo(error: unknown, requestTimedOut: boolean): CloudFailureInfo | null {
+  if (requestTimedOut && error instanceof DOMException && error.name === "AbortError") {
+    return {
+      retryAfterMs: TRANSIENT_RETRY_MS,
+      message: "Cloudflare 转写服务响应超时，正在重试，请继续说话。",
+    };
+  }
+  if (error instanceof TypeError) return cloudFailureInfo(null, "");
+  return null;
 }
 
 function rms(samples: Float32Array): number {
@@ -117,6 +129,8 @@ export class CloudTranscriptionSession {
   private prompt = "";
   private language: "chinese" | "english" = "chinese";
   private abortController: AbortController | null = null;
+  private requestTimeout = 0;
+  private requestTimedOut = false;
   private retryNotBefore = 0;
   private readonly speechGate = new SpeechActivityGate();
 
@@ -168,6 +182,9 @@ export class CloudTranscriptionSession {
     this.interval = 0;
     this.abortController?.abort();
     this.abortController = null;
+    if (this.requestTimeout) window.clearTimeout(this.requestTimeout);
+    this.requestTimeout = 0;
+    this.requestTimedOut = false;
     this.processor?.disconnect();
     this.silentGain?.disconnect();
     this.processor = null;
@@ -227,9 +244,16 @@ export class CloudTranscriptionSession {
     ) return;
     this.inferencePending = true;
     this.abortController = new AbortController();
+    this.requestTimedOut = false;
+    this.requestTimeout = window.setTimeout(() => {
+      if (!this.inferencePending || !this.abortController) return;
+      this.requestTimedOut = true;
+      this.abortController.abort();
+    }, CLOUD_REQUEST_TIMEOUT_MS);
     try {
       const pcm = resampleLinear(this.latestSamples(), this.sampleRate, SAMPLE_RATE);
       const query = new URLSearchParams({ prompt: this.prompt, language: this.language });
+      this.callbacks.onState({ state: "listening", message: "正在将语音发送到 Cloudflare 转写服务…" });
       const response = await fetch(`${this.endpoint}/v1/transcribe?${query}`, {
         method: "POST",
         headers: { "Content-Type": "audio/wav" },
@@ -263,14 +287,20 @@ export class CloudTranscriptionSession {
     } catch (error) {
       if (this.running && !(error instanceof DOMException && error.name === "AbortError")) {
         const message = cloudError(error).message;
-        const networkRetry = cloudFailureInfo(null, "");
-        if (error instanceof TypeError && networkRetry) {
-          this.deferRetry(networkRetry);
+        const retry = cloudTransportFailureInfo(error, this.requestTimedOut);
+        if (retry) {
+          this.deferRetry(retry);
         } else {
           this.callbacks.onState({ state: "error", message });
         }
+      } else if (this.running) {
+        const retry = cloudTransportFailureInfo(error, this.requestTimedOut);
+        if (retry) this.deferRetry(retry);
       }
     } finally {
+      if (this.requestTimeout) window.clearTimeout(this.requestTimeout);
+      this.requestTimeout = 0;
+      this.requestTimedOut = false;
       this.abortController = null;
       this.inferencePending = false;
     }

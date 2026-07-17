@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cloudFailureInfo,
+  cloudTransportFailureInfo,
   isCloudTranscriptionConfigured,
   isRecoverableBrowserSpeechError,
 } from "./cloudTranscription";
@@ -22,5 +23,14 @@ describe("cloud transcription routing", () => {
       retryAfterMs: 2_000,
       message: "Cloudflare 转写服务正在重试，请继续说话。",
     });
+  });
+
+  it("retries an abort only when the Cloudflare request watchdog timed out", () => {
+    const timeout = new DOMException("The operation timed out.", "AbortError");
+    expect(cloudTransportFailureInfo(timeout, true)).toEqual({
+      retryAfterMs: 2_000,
+      message: "Cloudflare 转写服务响应超时，正在重试，请继续说话。",
+    });
+    expect(cloudTransportFailureInfo(timeout, false)).toBeNull();
   });
 });
