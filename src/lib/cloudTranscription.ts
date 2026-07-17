@@ -6,6 +6,7 @@ const SAMPLE_RATE = 16_000;
 const AUDIO_WINDOW_SECONDS = 5;
 const AUDIO_BUFFER_SECONDS = 8;
 const INFERENCE_INTERVAL_MS = 1_000;
+const TRANSIENT_RETRY_MS = 2_000;
 
 export type CloudTranscriptionCallbacks = {
   onState: (state: RecognitionState) => void;
@@ -24,6 +25,11 @@ type CloudTranscriptionResponse = {
   message?: string;
 };
 
+export type CloudFailureInfo = {
+  retryAfterMs: number;
+  message: string;
+};
+
 export function cloudTranscriptionEndpoint(): string | null {
   const configured = import.meta.env.VITE_CLOUD_TRANSCRIPTION_ENDPOINT?.trim().replace(/\/+$/, "");
   return configured || null;
@@ -35,6 +41,21 @@ export function isCloudTranscriptionConfigured(): boolean {
 
 export function isRecoverableBrowserSpeechError(error: string): boolean {
   return error === "network" || error === "language-not-supported" || error === "service-not-allowed";
+}
+
+/**
+ * Workers AI can occasionally close a request before emitting its JSON error
+ * payload. Treat an empty response as transient; a structured response is a
+ * real client-facing error and must remain visible.
+ */
+export function cloudFailureInfo(status: number | null, responseBody: string): CloudFailureInfo | null {
+  const emptyResponse = !responseBody.trim();
+  const transientStatus = status === null || status === 400 || status === 429 || (status !== null && status >= 500);
+  if (!emptyResponse || !transientStatus) return null;
+  return {
+    retryAfterMs: TRANSIENT_RETRY_MS,
+    message: "Cloudflare 转写服务正在重试，请继续说话。",
+  };
 }
 
 function rms(samples: Float32Array): number {
@@ -96,6 +117,7 @@ export class CloudTranscriptionSession {
   private prompt = "";
   private language: "chinese" | "english" = "chinese";
   private abortController: AbortController | null = null;
+  private retryNotBefore = 0;
   private readonly speechGate = new SpeechActivityGate();
 
   constructor(private readonly callbacks: CloudTranscriptionCallbacks, private readonly endpoint = cloudTranscriptionEndpoint()) {}
@@ -157,6 +179,7 @@ export class CloudTranscriptionSession {
     this.chunks = [];
     this.bufferedSamples = 0;
     this.inferencePending = false;
+    this.retryNotBefore = 0;
     this.lastText = "";
     this.isSpeech = false;
     this.speechGate.reset();
@@ -194,7 +217,14 @@ export class CloudTranscriptionSession {
   }
 
   private async transcribeLatestWindow(): Promise<void> {
-    if (!this.running || this.inferencePending || !this.isSpeech || this.bufferedSamples < this.sampleRate || !this.endpoint) return;
+    if (
+      !this.running
+      || this.inferencePending
+      || performance.now() < this.retryNotBefore
+      || !this.isSpeech
+      || this.bufferedSamples < this.sampleRate
+      || !this.endpoint
+    ) return;
     this.inferencePending = true;
     this.abortController = new AbortController();
     try {
@@ -206,8 +236,21 @@ export class CloudTranscriptionSession {
         body: encodeWavPcm16(pcm, SAMPLE_RATE),
         signal: this.abortController.signal,
       });
-      const payload = await response.json() as CloudTranscriptionResponse;
-      if (!response.ok) throw new Error(payload.message ?? "Cloudflare 转写失败。");
+      const responseBody = await response.text();
+      const retry = !response.ok ? cloudFailureInfo(response.status, responseBody) : null;
+      if (retry) {
+        this.deferRetry(retry);
+        return;
+      }
+      let payload: CloudTranscriptionResponse = {};
+      if (responseBody) {
+        try {
+          payload = JSON.parse(responseBody) as CloudTranscriptionResponse;
+        } catch {
+          throw new Error("Cloudflare 转写服务返回了无法识别的结果。");
+        }
+      }
+      if (!response.ok) throw new Error(payload.message ?? `Cloudflare 转写失败（HTTP ${response.status}）。`);
       const text = payload.text?.trim() ?? "";
       if (!text || text === this.lastText) return;
       this.lastText = text;
@@ -219,11 +262,22 @@ export class CloudTranscriptionSession {
       });
     } catch (error) {
       if (this.running && !(error instanceof DOMException && error.name === "AbortError")) {
-        this.callbacks.onState({ state: "error", message: cloudError(error).message });
+        const message = cloudError(error).message;
+        const networkRetry = cloudFailureInfo(null, "");
+        if (error instanceof TypeError && networkRetry) {
+          this.deferRetry(networkRetry);
+        } else {
+          this.callbacks.onState({ state: "error", message });
+        }
       }
     } finally {
       this.abortController = null;
       this.inferencePending = false;
     }
+  }
+
+  private deferRetry(failure: CloudFailureInfo): void {
+    this.retryNotBefore = performance.now() + failure.retryAfterMs;
+    this.callbacks.onState({ state: "listening", message: failure.message });
   }
 }
