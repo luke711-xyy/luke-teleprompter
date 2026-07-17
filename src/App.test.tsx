@@ -4,7 +4,7 @@ import App from "./App";
 
 const localRecognizedPhrase = "今天我们来看看这款产品 and why it fits naturally into your everyday workflow";
 const distantRecognizedPhrase = "接下来我们会进行实际演示 so you can see exactly how it works";
-const localWhisperMock = vi.hoisted(() => ({
+const browserSpeechMock = vi.hoisted(() => ({
   starts: [] as Array<{ prompt: string; options: { language?: string } }>,
   emitFinalRecognition: true,
   recognizedPhrase: "今天我们来看看这款产品 and why it fits naturally into your everyday workflow",
@@ -21,8 +21,8 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("./lib/localWhisper", () => {
-  class MockLocalWhisperSession {
+vi.mock("./lib/browserSpeech", () => {
+  class MockBrowserSpeechSession {
     constructor(private readonly callbacks: {
       onState: (state: { state: "loading" | "listening" | "error"; message?: string }) => void;
       onLevel: (level: { level: number; isSpeech: boolean }) => void;
@@ -30,10 +30,10 @@ vi.mock("./lib/localWhisper", () => {
     }) {}
 
     async start(prompt = "", options: { language?: string } = {}) {
-      localWhisperMock.starts.push({ prompt, options });
-      this.callbacks.onState({ state: "listening", message: "Whisper base 正在本机识别中文 / English" });
+      browserSpeechMock.starts.push({ prompt, options });
+      this.callbacks.onState({ state: "listening", message: "Chrome 正在识别中文 / English" });
       this.callbacks.onLevel({ level: 0.2, isSpeech: true });
-      localWhisperMock.emit = (text, isFinal) => {
+      browserSpeechMock.emit = (text, isFinal) => {
         this.callbacks.onResult({
           text,
           detectedLanguage: "zh-CN",
@@ -41,22 +41,22 @@ vi.mock("./lib/localWhisper", () => {
           isFinal,
         });
       };
-      localWhisperMock.emit(localWhisperMock.recognizedPhrase, false);
-      if (localWhisperMock.emitFinalRecognition) localWhisperMock.emit(localWhisperMock.recognizedPhrase, true);
+      browserSpeechMock.emit(browserSpeechMock.recognizedPhrase, false);
+      if (browserSpeechMock.emitFinalRecognition) browserSpeechMock.emit(browserSpeechMock.recognizedPhrase, true);
     }
 
     stop() {}
   }
 
-  return { LocalWhisperSession: MockLocalWhisperSession, isLocalWhisperSupported: () => true };
+  return { BrowserSpeechSession: MockBrowserSpeechSession, isBrowserSpeechSupported: () => true };
 });
 
 describe("microphone test panel", () => {
   beforeEach(() => {
-    localWhisperMock.starts = [];
-    localWhisperMock.emitFinalRecognition = true;
-    localWhisperMock.recognizedPhrase = localRecognizedPhrase;
-    localWhisperMock.emit = undefined;
+    browserSpeechMock.starts = [];
+    browserSpeechMock.emitFinalRecognition = true;
+    browserSpeechMock.recognizedPhrase = localRecognizedPhrase;
+    browserSpeechMock.emit = undefined;
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: undefined,
@@ -92,26 +92,37 @@ describe("microphone test panel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /开始测试/ }));
     await waitFor(() => expect(screen.getByText("正在测试")).toBeInTheDocument());
-    expect(screen.getAllByText(localWhisperMock.recognizedPhrase)).toHaveLength(1);
+    expect(screen.getAllByText(browserSpeechMock.recognizedPhrase)).toHaveLength(1);
     expect(screen.getByText("zh-CN · 91%")).toBeInTheDocument();
     expect(screen.queryByText("zh-CN · 1%")).not.toBeInTheDocument();
-    expect(localWhisperMock.starts).toContainEqual(expect.objectContaining({ options: { language: "zh-CN" } }));
+    expect(browserSpeechMock.starts).toContainEqual(expect.objectContaining({ options: { language: "zh-CN" } }));
 
     fireEvent.click(screen.getByRole("button", { name: /清空结果/ }));
-    expect(screen.queryByText(localWhisperMock.recognizedPhrase)).not.toBeInTheDocument();
+    expect(screen.queryByText(browserSpeechMock.recognizedPhrase)).not.toBeInTheDocument();
   });
 
-  it("advances the browser teleprompter from one local Whisper final recognition result", async () => {
+  it("keeps the browser microphone disabled until the user activates it", () => {
     render(<App />);
+
+    expect(screen.getByRole("button", { name: "开启麦克风" })).toBeInTheDocument();
+    expect(browserSpeechMock.starts).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
+    expect(browserSpeechMock.starts).toHaveLength(1);
+  });
+
+  it("advances the browser teleprompter from one Chrome final recognition result", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
 
     await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
     });
   });
 
-  it("advances provisionally from a strong local Whisper interim result", async () => {
-    localWhisperMock.emitFinalRecognition = false;
+  it("advances provisionally from a strong Chrome interim result", async () => {
+    browserSpeechMock.emitFinalRecognition = false;
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
 
     await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
@@ -119,16 +130,17 @@ describe("microphone test panel", () => {
   });
 
   it("only recovers to a distant final result after local tracking has been missing for a while", async () => {
-    localWhisperMock.emitFinalRecognition = false;
-    localWhisperMock.recognizedPhrase = distantRecognizedPhrase;
+    browserSpeechMock.emitFinalRecognition = false;
+    browserSpeechMock.recognizedPhrase = distantRecognizedPhrase;
     let now = 0;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
 
-    await waitFor(() => expect(localWhisperMock.starts.length).toBeGreaterThan(0));
+    await waitFor(() => expect(browserSpeechMock.starts.length).toBeGreaterThan(0));
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
     now = 2501;
-    await act(async () => localWhisperMock.emit?.(distantRecognizedPhrase, true));
+    await act(async () => browserSpeechMock.emit?.(distantRecognizedPhrase, true));
 
     await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("works.");
@@ -137,17 +149,18 @@ describe("microphone test panel", () => {
   });
 
   it("does not use distant recovery when sequential reading is enabled", async () => {
-    localWhisperMock.emitFinalRecognition = false;
-    localWhisperMock.recognizedPhrase = distantRecognizedPhrase;
+    browserSpeechMock.emitFinalRecognition = false;
+    browserSpeechMock.recognizedPhrase = distantRecognizedPhrase;
     let now = 0;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
     render(<App />);
-    await waitFor(() => expect(localWhisperMock.starts.length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
+    await waitFor(() => expect(browserSpeechMock.starts.length).toBeGreaterThan(0));
     fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
     fireEvent.click(screen.getByRole("button", { name: "跳读匹配" }));
 
     now = 2501;
-    await act(async () => localWhisperMock.emit?.(distantRecognizedPhrase, true));
+    await act(async () => browserSpeechMock.emit?.(distantRecognizedPhrase, true));
 
     expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("今");
     clock.mockRestore();
@@ -254,7 +267,7 @@ describe("microphone test panel", () => {
   it("uses the former pure-reading slot for the only microphone toggle and keeps speed in steady mode", () => {
     render(<App />);
 
-    const microphoneToggle = screen.getByRole("button", { name: "关闭麦克风" });
+    const microphoneToggle = screen.getByRole("button", { name: "开启麦克风" });
     expect(microphoneToggle).toHaveClass("chrome-toggle-button");
     expect(globalThis.document.querySelector(".microphone-indicator")).not.toBeInTheDocument();
     expect(globalThis.document.querySelector(".microphone-toggle")).not.toBeInTheDocument();
@@ -262,14 +275,14 @@ describe("microphone test panel", () => {
     expect(screen.queryByRole("slider", { name: "匀速滚动速度" })).not.toBeInTheDocument();
 
     fireEvent.click(microphoneToggle);
-    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
+    expect(screen.getByRole("button", { name: "关闭麦克风" })).toHaveClass("microphone-toggle-button");
 
     fireEvent.click(screen.getByRole("button", { name: "匀速滚动" }));
 
     const speedSlider = screen.getByRole("slider", { name: "匀速滚动速度" });
     expect(speedSlider).toHaveValue("1");
     expect(speedSlider).toHaveAttribute("max", "10");
-    expect(screen.getByRole("button", { name: "开启麦克风" })).toHaveClass("microphone-toggle-button");
+    expect(screen.getByRole("button", { name: "关闭麦克风" })).toHaveClass("microphone-toggle-button");
   });
 
   it("renders font size as a draggable range with its current pixel value", () => {
@@ -302,6 +315,7 @@ describe("microphone test panel", () => {
 
   it("jumps to the first and last sentences from the transport controls", async () => {
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "开启麦克风" }));
     await waitFor(() => {
       expect(globalThis.document.querySelector(".is-active-token")?.textContent).toBe("workflow.");
     });

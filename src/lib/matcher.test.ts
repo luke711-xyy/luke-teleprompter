@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findForwardMatch, MatchHysteresis, RecoveryMatchGate } from "./matcher";
+import { findForwardMatch, MatchHysteresis, RecoveryMatchGate, StreamingMatchGate } from "./matcher";
 import { parseScript, searchableIndexForDisplay } from "./script";
 import { DEFAULT_SCRIPT, DEFAULT_SETTINGS } from "./storage";
 
@@ -114,5 +114,47 @@ describe("forward script matching", () => {
 
     expect(findForwardMatch("product 2", document, 0)).not.toBeNull();
     expect(findForwardMatch("重点词", document, 0)).not.toBeNull();
+  });
+
+  it("accepts a high-score interim result immediately", () => {
+    const gate = new StreamingMatchGate();
+    const match = {
+      displayTokenIndex: 12,
+      startSearchableIndex: 10,
+      searchableIndex: 12,
+      score: 0.92,
+      matchedText: "everyday workflow",
+    };
+
+    expect(gate.confirm(match, false)).toBe(true);
+  });
+
+  it("requires two nearby weak interim matches before advancing", () => {
+    const gate = new StreamingMatchGate();
+    const match = {
+      displayTokenIndex: 12,
+      startSearchableIndex: 10,
+      searchableIndex: 12,
+      score: 0.8,
+      matchedText: "everyday workflow",
+    };
+
+    expect(gate.confirm(match, false)).toBe(false);
+    expect(gate.confirm({ ...match, searchableIndex: 13, displayTokenIndex: 13 }, false)).toBe(true);
+  });
+
+  it("accepts a final result and resets its pending interim candidate", () => {
+    const gate = new StreamingMatchGate();
+    const weak = {
+      displayTokenIndex: 12,
+      startSearchableIndex: 10,
+      searchableIndex: 12,
+      score: 0.8,
+      matchedText: "everyday workflow",
+    };
+
+    expect(gate.confirm(weak, false)).toBe(false);
+    expect(gate.confirm({ ...weak, searchableIndex: 28, displayTokenIndex: 28, score: 0.72 }, true)).toBe(true);
+    expect(gate.confirm({ ...weak, searchableIndex: 32, displayTokenIndex: 32 }, false)).toBe(false);
   });
 });
