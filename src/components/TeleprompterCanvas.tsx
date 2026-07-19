@@ -1,7 +1,7 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { calculateTwoLineScrollTarget, shouldResnapAfterScroll } from "../lib/scroll";
-import type { ScriptDocument, ScrollMode } from "../lib/types";
+import type { ScriptDocument, ScrollMode, VisualTheme } from "../lib/types";
 import {
   firstTokenOnVisualLine,
   focusedTokenIdsFromVisualLines,
@@ -10,6 +10,10 @@ import {
   leadingTwoLineTokenId,
 } from "../lib/visualLines";
 import type { TokenLineMeasurement, VisualLine } from "../lib/visualLines";
+import { CanvasThemeLayer } from "./CanvasThemeLayer";
+import type { SpotlightStageHandle } from "./SpotlightStage3D";
+
+const SpotlightStage3D = lazy(() => import("./SpotlightStage3D").then((module) => ({ default: module.SpotlightStage3D })));
 
 export interface TeleprompterCanvasHandle {
   scrollToToken: (tokenIndex: number, behavior?: ScrollBehavior) => void;
@@ -31,16 +35,21 @@ interface TeleprompterCanvasProps {
   dimStrength: number;
   mirrored: boolean;
   mode: ScrollMode;
+  visualTheme: VisualTheme;
+  playing: boolean;
+  microphoneActive: boolean;
   onChineseCharactersPerLineChange?: (value: number) => void;
   onManualScroll?: () => void;
   onTokenClick?: (tokenIndex: number) => void;
 }
 
 export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, TeleprompterCanvasProps>(
-  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, mirrored, mode, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
+  function TeleprompterCanvas({ document, activeTokenIndex, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, mirrored, mode, visualTheme, playing, microphoneActive, onChineseCharactersPerLineChange, onManualScroll, onTokenClick }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const focusBandRef = useRef<HTMLDivElement>(null);
     const scriptRef = useRef<HTMLDivElement>(null);
+    const spotlightStageRef = useRef<SpotlightStageHandle>(null);
+    const textureSourceRef = useRef<HTMLDivElement>(null);
     const tokenRefs = useRef(new Map<number, HTMLSpanElement>());
     const cueAnchorRefs = useRef(new Map<number, HTMLSpanElement>());
     const programmaticScroll = useRef(false);
@@ -56,6 +65,10 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     activeTokenIndexRef.current = activeTokenIndex;
 
+    const requestSpotlightPaint = useCallback(() => {
+      if (visualTheme === "spotlight") spotlightStageRef.current?.requestPaint();
+    }, [visualTheme]);
+
     const promptClass = useMemo(
       () => `prompt-script ${mirrored ? "is-mirrored" : ""}`,
       [mirrored],
@@ -63,17 +76,25 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
     const dimStyles = useMemo(() => {
       const strength = Math.min(100, Math.max(0, dimStrength)) / 100;
+      const palettes = {
+        classic: { text: [250, 248, 241], dim: [52, 52, 53], emphasis: [255, 209, 95], emphasisDim: [94, 70, 31], cue: [255, 173, 40], cueDim: [100, 75, 34] },
+        prism: { text: [248, 251, 255], dim: [43, 47, 67], emphasis: [255, 184, 75], emphasisDim: [94, 70, 31], cue: [83, 218, 255], cueDim: [37, 81, 97] },
+        soundscape: { text: [234, 255, 248], dim: [27, 54, 49], emphasis: [244, 112, 151], emphasisDim: [83, 45, 57], cue: [78, 232, 195], cueDim: [38, 91, 79] },
+        director: { text: [255, 243, 228], dim: [61, 38, 34], emphasis: [255, 92, 67], emphasisDim: [102, 43, 35], cue: [247, 207, 148], cueDim: [103, 75, 47] },
+        spotlight: { text: [255, 249, 231], dim: [48, 45, 38], emphasis: [255, 211, 124], emphasisDim: [103, 77, 38], cue: [255, 192, 88], cueDim: [100, 72, 31] },
+      } as const;
+      const palette = palettes[visualTheme];
       const mix = (from: [number, number, number], to: [number, number, number]) => {
         const channel = (index: number) => Math.round(from[index] + (to[index] - from[index]) * strength);
         return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
       };
       return {
-        "--dimmed-token-color": mix([250, 248, 241], [52, 52, 53]),
-        "--dimmed-emphasized-color": mix([255, 209, 95], [94, 70, 31]),
-        "--dimmed-cue-color": mix([255, 173, 40], [100, 75, 34]),
+        "--dimmed-token-color": mix(palette.text as [number, number, number], palette.dim as [number, number, number]),
+        "--dimmed-emphasized-color": mix(palette.emphasis as [number, number, number], palette.emphasisDim as [number, number, number]),
+        "--dimmed-cue-color": mix(palette.cue as [number, number, number], palette.cueDim as [number, number, number]),
         "--dimmed-cue-opacity": String(0.9 - (0.35 * strength)),
       } as CSSProperties;
-    }, [dimStrength]);
+    }, [dimStrength, visualTheme]);
 
     const chineseCharactersPerLine = useCallback(() => {
       const scriptNode = scriptRef.current;
@@ -224,6 +245,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
 
       if (behavior === "auto" || Math.abs(distance) < 1) {
         viewport.scrollTop = target;
+        requestSpotlightPaint();
         scrollUnlockTimerRef.current = window.setTimeout(() => {
           programmaticScroll.current = false;
           scrollUnlockTimerRef.current = null;
@@ -237,6 +259,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         const progress = Math.min(1, (now - startedAt) / duration);
         const eased = 1 - ((1 - progress) ** 3);
         viewport.scrollTop = start + distance * eased;
+        requestSpotlightPaint();
         if (progress < 1) {
           scrollFrameRef.current = window.requestAnimationFrame(animate);
         } else {
@@ -253,6 +276,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
       setScrollTop: (value: number) => {
         if (!viewportRef.current) return;
         viewportRef.current.scrollTop = value;
+        requestSpotlightPaint();
       },
       getLineHeight: () => fontSize * lineHeight,
       getMaxScroll: () => {
@@ -278,7 +302,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           : candidate;
         return nearest?.tokenIds[0] ?? activeTokenIndexRef.current;
       },
-    }), [focusPosition, fontSize, lineHeight]);
+    }), [focusPosition, fontSize, lineHeight, requestSpotlightPaint]);
 
     useEffect(() => {
       if (mode === "follow") scrollToToken(activeTokenIndex);
@@ -300,9 +324,10 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         updateFocusedLineTokens();
         updateCuePlacements();
         onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
+        requestSpotlightPaint();
       });
       return () => window.cancelAnimationFrame(frame);
-    }, [chineseCharactersPerLine, document.tokens, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, onChineseCharactersPerLineChange, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, document.tokens, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, onChineseCharactersPerLineChange, rebuildVisualLineCache, requestSpotlightPaint, updateCuePlacements, updateFocusedLineTokens]);
 
     useEffect(() => {
       const scriptNode = scriptRef.current;
@@ -316,6 +341,7 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
           updateFocusedLineTokens();
           updateCuePlacements();
           onChineseCharactersPerLineChange?.(chineseCharactersPerLine());
+          requestSpotlightPaint();
         });
       };
 
@@ -331,74 +357,129 @@ export const TeleprompterCanvas = forwardRef<TeleprompterCanvasHandle, Telepromp
         observer.disconnect();
         window.removeEventListener("resize", updateMeasurements);
       };
-    }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, rebuildVisualLineCache, updateCuePlacements, updateFocusedLineTokens]);
+    }, [chineseCharactersPerLine, lineHeight, onChineseCharactersPerLineChange, sidePadding, rebuildVisualLineCache, requestSpotlightPaint, updateCuePlacements, updateFocusedLineTokens]);
 
-    return (
-      <main className="reading-stage">
-        <div className="focus-band" ref={focusBandRef} style={{ top: `${focusPosition}%`, height: `${focusBandHeight}px` }} aria-hidden="true">
-          <span className="focus-marker" />
-        </div>
-        <div
-          className="prompt-viewport"
-          ref={viewportRef}
-          onScroll={() => {
-            if (!shouldResnapAfterScroll(mode, programmaticScroll.current)) {
-              updateFocusedLineTokens();
-            } else {
-              onManualScroll?.();
-            }
-          }}
-        >
-          <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px`, lineHeight, "--prompt-side-padding": `${sidePadding}%` } as CSSProperties}>
-            {cuePlacements.length > 0 && (
-              <aside className="cue-overlay-layer" aria-label="动作提示">
-                {cuePlacements.map((cue) => (
-                  <div
-                    key={cue.id}
-                    className={`cue-floating-card ${focusedLineTokenIds.has(cue.targetTokenId) ? "is-active" : ""}`}
-                    style={{ top: `${cue.top}px`, left: `${cue.left}px` }}
-                  >
-                    {cue.text}
-                  </div>
-                ))}
-              </aside>
-            )}
-            {document.tokens.map((token) => {
-              if (token.kind === "linebreak") return <br key={token.id} />;
-              if (token.kind === "space") return <span key={token.id}>{token.text}</span>;
-              if (token.kind === "cue") {
-                const targetTokenId = cueTargetTokenId(token.id);
-                const cueFocusClass = focusedLineTokenIds.has(targetTokenId) ? "is-focused-line" : "is-dimmed-line";
-                return (
-                  <span
-                    key={token.id}
-                    ref={(node) => {
-                      if (node) cueAnchorRefs.current.set(token.id, node);
-                      else cueAnchorRefs.current.delete(token.id);
-                    }}
-                    className={`cue-insertion-anchor ${cueFocusClass}`}
-                    aria-label={`动作提示：${token.text}`}
-                  />
-                );
-              }
-              const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
+    useEffect(() => {
+      requestSpotlightPaint();
+    }, [activeTokenIndex, cuePlacements, dimStyles, focusedLineTokenIds, mirrored, promptClass, requestSpotlightPaint]);
+
+    const renderFocusBand = () => (
+      <div className="focus-band" ref={focusBandRef} style={{ top: `${focusPosition}%`, height: `${focusBandHeight}px` }} aria-hidden="true">
+        <span className="focus-marker" />
+      </div>
+    );
+
+    const renderPromptViewport = () => (
+      <div
+        className="prompt-viewport"
+        ref={viewportRef}
+        onScroll={() => {
+          requestSpotlightPaint();
+          if (!shouldResnapAfterScroll(mode, programmaticScroll.current)) {
+            updateFocusedLineTokens();
+          } else {
+            onManualScroll?.();
+          }
+        }}
+      >
+        <div className={promptClass} ref={scriptRef} style={{ ...dimStyles, fontSize: `${fontSize}px`, lineHeight, "--prompt-side-padding": `${sidePadding}%` } as CSSProperties}>
+          {cuePlacements.length > 0 && (
+            <aside className="cue-overlay-layer" aria-label="动作提示">
+              {cuePlacements.map((cue) => (
+                <div
+                  key={cue.id}
+                  className={`cue-floating-card ${focusedLineTokenIds.has(cue.targetTokenId) ? "is-active" : ""}`}
+                  style={{ top: `${cue.top}px`, left: `${cue.left}px` }}
+                >
+                  {cue.text}
+                </div>
+              ))}
+            </aside>
+          )}
+          {document.tokens.map((token) => {
+            if (token.kind === "linebreak") return <br key={token.id} />;
+            if (token.kind === "space") return <span key={token.id}>{token.text}</span>;
+            if (token.kind === "cue") {
+              const targetTokenId = cueTargetTokenId(token.id);
+              const cueFocusClass = focusedLineTokenIds.has(targetTokenId) ? "is-focused-line" : "is-dimmed-line";
               return (
                 <span
                   key={token.id}
                   ref={(node) => {
-                    if (node) tokenRefs.current.set(token.id, node);
-                    else tokenRefs.current.delete(token.id);
+                    if (node) cueAnchorRefs.current.set(token.id, node);
+                    else cueAnchorRefs.current.delete(token.id);
                   }}
-                  className={`prompt-token token-${token.kind} ${focusClass} ${token.emphasized ? "is-emphasized" : ""} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
-                  data-token-index={token.id}
-                  onClick={() => selectTokenLine(token.id)}
-                >
-                  {token.text}
-                </span>
+                  className={`cue-insertion-anchor ${cueFocusClass}`}
+                  aria-label={`动作提示：${token.text}`}
+                />
               );
-            })}
-          </div>
+            }
+            const focusClass = focusedLineTokenIds.has(token.id) ? "is-focused-line" : "is-dimmed-line";
+            return (
+              <span
+                key={token.id}
+                ref={(node) => {
+                  if (node) tokenRefs.current.set(token.id, node);
+                  else tokenRefs.current.delete(token.id);
+                }}
+                className={`prompt-token token-${token.kind} ${focusClass} ${token.emphasized ? "is-emphasized" : ""} ${token.id === activeTokenIndex ? "is-active-token" : ""}`}
+                data-token-index={token.id}
+                onClick={() => selectTokenLine(token.id)}
+              >
+                {token.text}
+              </span>
+            );
+          })}
         </div>
+      </div>
+    );
+
+    return (
+      <main className="reading-stage">
+        {visualTheme === "spotlight" ? (
+          <Suspense fallback={(
+            <>
+              <CanvasThemeLayer
+                theme="spotlight"
+                activeTokenIndex={activeTokenIndex}
+                tokenCount={document.tokens.length}
+                focusPosition={focusPosition}
+                playing={playing}
+                microphoneActive={microphoneActive}
+              />
+              {renderFocusBand()}
+              {renderPromptViewport()}
+            </>
+          )}>
+            <>
+              <SpotlightStage3D
+                ref={spotlightStageRef}
+                activeTokenIndex={activeTokenIndex}
+                tokenCount={document.tokens.length}
+                focusPosition={focusPosition}
+                playing={playing}
+                microphoneActive={microphoneActive}
+                sourceElementRef={textureSourceRef}
+              >
+                {renderPromptViewport()}
+              </SpotlightStage3D>
+              {renderFocusBand()}
+            </>
+          </Suspense>
+        ) : (
+          <>
+            <CanvasThemeLayer
+              theme={visualTheme}
+              activeTokenIndex={activeTokenIndex}
+              tokenCount={document.tokens.length}
+              focusPosition={focusPosition}
+              playing={playing}
+              microphoneActive={microphoneActive}
+            />
+            {renderFocusBand()}
+            {renderPromptViewport()}
+          </>
+        )}
       </main>
     );
   },

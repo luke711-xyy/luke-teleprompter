@@ -1,4 +1,4 @@
-import type { PersistedSettings } from "./types";
+import type { PersistedSettings, VisualTheme } from "./types";
 import {
   DIM_STRENGTH_MAX,
   DIM_STRENGTH_MIN,
@@ -33,7 +33,12 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   mirrored: false,
   activeTokenIndex: 28,
   recognitionEngine: "auto",
+  visualTheme: "classic",
 };
+
+function isVisualTheme(value: unknown): value is VisualTheme {
+  return value === "classic" || value === "prism" || value === "soundscape" || value === "director" || value === "spotlight";
+}
 
 export function loadSettings(): PersistedSettings {
   try {
@@ -64,7 +69,8 @@ export function loadSettings(): PersistedSettings {
     const recognitionEngine = parsed.recognitionEngine === "whisper" || parsed.recognitionEngine === "browser" || parsed.recognitionEngine === "cloud" || parsed.recognitionEngine === "auto"
       ? parsed.recognitionEngine
       : DEFAULT_SETTINGS.recognitionEngine;
-    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, focusBandHeight, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled, recognitionEngine };
+    const visualTheme = isVisualTheme(parsed.visualTheme) ? parsed.visualTheme : DEFAULT_SETTINGS.visualTheme;
+    return { ...DEFAULT_SETTINGS, ...parsed, focusPosition, focusBandHeight, fontSize, dimStrength, lineHeight, sidePadding, skipAheadEnabled, recognitionEngine, visualTheme };
   } catch {
     return DEFAULT_SETTINGS;
   }

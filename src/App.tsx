@@ -48,7 +48,7 @@ import {
   stopMicrophoneTest,
   stopRecognition,
 } from "./lib/tauri";
-import type { ModelProgress, ModelStatus, RecognitionEngine, RecognitionLevel, RecognitionResult, RecognitionState, ScrollMode } from "./lib/types";
+import type { ModelProgress, ModelStatus, RecognitionEngine, RecognitionLevel, RecognitionResult, RecognitionState, ScrollMode, VisualTheme } from "./lib/types";
 
 const initialSettings = loadSettings();
 const RECOVERY_AFTER_LOCAL_MISS_MS = 2500;
@@ -74,6 +74,7 @@ export default function App() {
   const [dimStrength, setDimStrength] = useState(initialSettings.dimStrength);
   const [skipAheadEnabled, setSkipAheadEnabled] = useState(initialSettings.skipAheadEnabled);
   const [mirrored, setMirrored] = useState(initialSettings.mirrored);
+  const [visualTheme, setVisualTheme] = useState<VisualTheme>(initialSettings.visualTheme);
   const [activeTokenIndex, setActiveTokenIndex] = useState(initialSettings.activeTokenIndex);
   const [playing, setPlaying] = useState(true);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
@@ -184,10 +185,10 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine });
+      saveSettings({ script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine, visualTheme });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine]);
+  }, [script, mode, speed, fontSize, lineHeight, sidePadding, focusPosition, focusBandHeight, dimStrength, skipAheadEnabled, mirrored, activeTokenIndex, recognitionEngine, visualTheme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -682,7 +683,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell theme-${visualTheme}`} data-visual-theme={visualTheme}>
       <div className="chrome-actions">
         <button
           className="chrome-toggle-button edit-button"
@@ -747,6 +748,9 @@ export default function App() {
         dimStrength={dimStrength}
         mirrored={mirrored}
         mode={mode}
+        visualTheme={visualTheme}
+        playing={playing}
+        microphoneActive={microphoneEnabled && mode === "follow"}
         onChineseCharactersPerLineChange={handleChineseCharactersPerLineChange}
         onManualScroll={handleManualScroll}
         onTokenClick={moveToToken}
@@ -771,6 +775,7 @@ export default function App() {
         dimStrength={dimStrength}
         skipAheadEnabled={skipAheadEnabled}
         mirrored={mirrored}
+        visualTheme={visualTheme}
         recognitionEngine={isTauri() ? undefined : recognitionEngine}
         cloudTranscriptionConfigured={cloudTranscriptionConfigured}
         localWhisperServiceState={isTauri() ? undefined : localWhisperServiceState}
@@ -790,6 +795,7 @@ export default function App() {
           localMissStartedAtRef.current = null;
         }}
         onToggleMirror={() => setMirrored((value) => !value)}
+        onVisualThemeChange={setVisualTheme}
         onRecognitionEngineChange={(engine) => void handleRecognitionEngineChange(engine)}
         onMicrophoneTest={() => {
           setSettingsOpen(false);
