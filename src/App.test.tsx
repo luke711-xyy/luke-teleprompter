@@ -192,6 +192,28 @@ describe("microphone test panel", () => {
     expect(browserSpeechMock.starts).toHaveLength(1);
   });
 
+  it("switches among visual-only themes without replacing the semantic prompt", () => {
+    render(<App />);
+
+    const shell = globalThis.document.querySelector(".app-shell");
+    expect(shell).toHaveAttribute("data-visual-theme", "classic");
+    expect(globalThis.document.querySelector(".canvas-theme-layer")).toHaveAttribute("aria-hidden", "true");
+    expect(globalThis.document.querySelector(".prompt-script")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: /声场地形/ }));
+    expect(shell).toHaveAttribute("data-visual-theme", "soundscape");
+
+    fireEvent.click(screen.getByRole("button", { name: /导演取景/ }));
+    expect(shell).toHaveAttribute("data-visual-theme", "director");
+
+    fireEvent.click(screen.getByRole("button", { name: /聚光灯下/ }));
+    expect(shell).toHaveAttribute("data-visual-theme", "spotlight");
+
+    fireEvent.click(screen.getByRole("button", { name: /^默认/ }));
+    expect(shell).toHaveAttribute("data-visual-theme", "classic");
+  });
+
   it("switches automatic following to local Whisper and starts the local audio pipeline", async () => {
     render(<App />);
 

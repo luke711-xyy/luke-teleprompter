@@ -1,5 +1,6 @@
 export type ScrollMode = "follow" | "steady";
 export type RecognitionEngine = "auto" | "browser" | "cloud" | "whisper";
+export type VisualTheme = "classic" | "prism" | "soundscape" | "director" | "spotlight";
 
 export type TokenKind = "latin" | "cjk" | "space" | "linebreak" | "punctuation" | "cue";
 
@@ -75,4 +76,5 @@ export interface PersistedSettings {
   mirrored: boolean;
   activeTokenIndex: number;
   recognitionEngine: RecognitionEngine;
+  visualTheme: VisualTheme;
 }

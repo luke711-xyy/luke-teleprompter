@@ -3,6 +3,7 @@ import {
   Cpu,
   EyeOff,
   MoveVertical,
+  Palette,
   Radio,
   RectangleHorizontal,
   Shuffle,
@@ -10,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { RecognitionEngine } from "../lib/types";
+import type { RecognitionEngine, VisualTheme } from "../lib/types";
 import {
   DIM_STRENGTH_MAX,
   DIM_STRENGTH_MIN,
@@ -36,6 +37,7 @@ interface SettingsDrawerProps {
   dimStrength: number;
   skipAheadEnabled: boolean;
   mirrored: boolean;
+  visualTheme: VisualTheme;
   recognitionEngine?: RecognitionEngine;
   cloudTranscriptionConfigured: boolean;
   localWhisperServiceState?: "ready" | "stopped" | "checking" | "starting" | "stopping" | "unavailable";
@@ -49,6 +51,7 @@ interface SettingsDrawerProps {
   onDimStrengthChange: (value: number) => void;
   onToggleSkipAhead: () => void;
   onToggleMirror: () => void;
+  onVisualThemeChange: (theme: VisualTheme) => void;
   onRecognitionEngineChange: (engine: RecognitionEngine) => void;
   onMicrophoneTest: () => void;
 }
@@ -97,6 +100,7 @@ export function SettingsDrawer({
   dimStrength,
   skipAheadEnabled,
   mirrored,
+  visualTheme,
   recognitionEngine,
   cloudTranscriptionConfigured,
   localWhisperServiceState,
@@ -110,6 +114,7 @@ export function SettingsDrawer({
   onDimStrengthChange,
   onToggleSkipAhead,
   onToggleMirror,
+  onVisualThemeChange,
   onRecognitionEngineChange,
   onMicrophoneTest,
 }: SettingsDrawerProps) {
@@ -125,6 +130,32 @@ export function SettingsDrawer({
         <button type="button" onClick={onClose} aria-label="关闭设置" title="关闭设置"><X size={20} /></button>
       </header>
       <div className="settings-drawer__body">
+        <section className="drawer-theme-picker" aria-labelledby="visual-theme-heading">
+          <div className="drawer-theme-picker__heading" id="visual-theme-heading">
+            <span><Palette size={20} /> 画面主题</span>
+            <small>仅改变前端视觉</small>
+          </div>
+          <div className="drawer-theme-picker__options" role="group" aria-label="选择画面主题">
+            {([
+              ["classic", "默认", "纯净无特效"],
+              ["prism", "折光舞台", "光圈与折射"],
+              ["soundscape", "声场地形", "波纹与等高线"],
+              ["director", "导演取景", "胶片与监看框"],
+              ["spotlight", "聚光灯下", "Three.js 真实 3D"],
+            ] as Array<[VisualTheme, string, string]>).map(([theme, name, description]) => (
+              <button
+                key={theme}
+                type="button"
+                className={`theme-choice theme-choice--${theme} ${visualTheme === theme ? "is-active" : ""}`}
+                onClick={() => onVisualThemeChange(theme)}
+                aria-pressed={visualTheme === theme}
+              >
+                <span className="theme-choice__preview" aria-hidden="true"><i /><i /><i /></span>
+                <span className="theme-choice__copy"><strong>{name}</strong><small>{description}</small></span>
+              </button>
+            ))}
+          </div>
+        </section>
         <SliderSetting
           label="文字大小"
           value={fontSize}
